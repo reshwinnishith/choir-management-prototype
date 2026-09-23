@@ -737,3 +737,59 @@ textarea {
   font-weight: 700;
   width: auto;
 }
+
+/* Calendar Component */
+.calendar {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.cal-head, .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.cal-head div {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px;
+  font-weight: 700;
+}
+
+.day {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  font-size: 13px;
+  background: #fafaf7;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.day.has::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  position: absolute;
+  bottom: 4px;
+}
+
+.day.enq::after {
+  background: var(--amber);
+}
+
+.day.selected {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 800;
+}
+
