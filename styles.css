@@ -13,6 +13,16 @@
   --blue: #3b719f;
   --shadow: 0 10px 28px rgba(22, 28, 23, 0.08);
   --radius: 20px;
+
+  /* Tag Group Palette */
+  --tag-membership-bg: #eaf1ed;
+  --tag-membership-color: #24372b;
+  --tag-language-bg: #fdf1e5;
+  --tag-language-color: #8c5319;
+  --tag-eligibility-bg: #ebe7f7;
+  --tag-eligibility-color: #5c4f8b;
+  --tag-custom-bg: #e7eff9;
+  --tag-custom-color: #3e6389;
 }
 
 * {
@@ -128,6 +138,12 @@ h2 {
   gap: 10px;
 }
 
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
 .stat {
   background: var(--card);
   border: 1px solid var(--line);
@@ -137,7 +153,7 @@ h2 {
 }
 
 .stat b {
-  font-size: 24px;
+  font-size: 22px;
   display: block;
   margin-top: 2px;
 }
@@ -166,6 +182,15 @@ h2 {
   padding: 13px;
 }
 
+.card.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card.clickable:active {
+  transform: scale(0.98);
+}
+
 .card.attention {
   border-left: 4px solid var(--amber);
   background: #fffdf5;
@@ -191,16 +216,38 @@ h2 {
   color: var(--muted);
 }
 
+/* Tag Pills */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 4px 9px;
   font-size: 11px;
   font-weight: 700;
   background: #efefe9;
   color: #484b45;
+  border: 1px solid transparent;
+}
+
+.pill.tag-membership {
+  background: var(--tag-membership-bg);
+  color: var(--tag-membership-color);
+}
+
+.pill.tag-language {
+  background: var(--tag-language-bg);
+  color: var(--tag-language-color);
+}
+
+.pill.tag-eligibility {
+  background: var(--tag-eligibility-bg);
+  color: var(--tag-eligibility-color);
+}
+
+.pill.tag-custom {
+  background: var(--tag-custom-bg);
+  color: var(--tag-custom-color);
 }
 
 .pill.enquiry {
@@ -259,23 +306,26 @@ h2 {
 }
 
 button.pill {
-  border: 1px solid transparent;
   cursor: pointer;
-  color: var(--muted);
-  transition: 0.2s;
+  transition: all 0.15s ease;
+}
+
+button.pill:hover {
+  opacity: 0.9;
 }
 
 button.pill.on {
-  background: var(--brand);
-  color: #fff;
+  background: var(--brand) !important;
+  color: #fff !important;
+  border-color: var(--brand) !important;
 }
 
 .btn {
   border: 0;
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
   transition: opacity 0.15s ease;
   display: inline-flex;
   align-items: center;
@@ -314,7 +364,7 @@ button.pill.on {
 }
 
 .btn.small {
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: 10px;
   font-size: 12px;
 }
@@ -369,7 +419,7 @@ button.pill.on {
 }
 
 .nav .ico {
-  font-size: 20px;
+  font-size: 19px;
   display: block;
   margin-bottom: 2px;
 }
@@ -417,26 +467,26 @@ button.pill.on {
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .person {
   display: grid;
-  grid-template-columns: 42px 1fr;
+  grid-template-columns: 40px 1fr;
   gap: 10px;
   align-items: center;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #d9e5db, #c9c9e9);
   display: grid;
   place-items: center;
   font-weight: 900;
   color: #35443a;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .avatar.manager-avatar {
@@ -444,74 +494,83 @@ button.pill.on {
   color: #8b3467;
 }
 
-.look-card-preview {
-  height: 110px;
-  border-radius: 14px;
-  margin-bottom: 10px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-  background-size: cover;
-  background-position: center;
-}
-
-.calendar {
-  background: var(--card);
+/* Filter Bar Component */
+.filter-box {
+  background: #fff;
   border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 14px;
 }
 
-.cal-head, .cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-
-.cal-head div {
-  text-align: center;
+.filter-group-title {
   font-size: 10px;
-  color: var(--muted);
-  padding: 4px;
-  font-weight: 700;
-}
-
-.day {
-  aspect-ratio: 1;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  position: relative;
-  font-size: 13px;
-  background: #fafaf7;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.day.has::after {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--green);
-  position: absolute;
-  bottom: 4px;
-}
-
-.day.enq::after {
-  background: var(--amber);
-}
-
-.day.selected {
-  background: var(--brand);
-  color: #fff;
   font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 8px 0 4px;
 }
 
+.filter-group-title:first-child {
+  margin-top: 0;
+}
+
+/* Period Switcher Tabs */
+.period-tabs {
+  display: flex;
+  background: #e9e9e3;
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 14px;
+}
+
+.period-tabs button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 9px;
+  color: var(--muted);
+  transition: all 0.2s ease;
+}
+
+.period-tabs button.active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Metrics Bar Graph */
+.metric-bar-item {
+  margin-bottom: 10px;
+}
+
+.metric-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.metric-bar-bg {
+  background: #efefe9;
+  border-radius: 999px;
+  height: 8px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  background: var(--brand);
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Modal styling */
 .modalwrap {
   position: fixed;
   inset: 0;
@@ -604,12 +663,6 @@ textarea {
   line-height: 1.4;
 }
 
-.notice.warning-notice {
-  background: #fff8f8;
-  border-color: #f7d2d2;
-  color: #8a302e;
-}
-
 .replacement-card {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -643,7 +696,6 @@ textarea {
   justify-content: center;
 }
 
-/* History pills on singer cards */
 .history-list {
   margin-top: 8px;
   padding-top: 8px;

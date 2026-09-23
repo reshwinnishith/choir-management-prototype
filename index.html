@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Choir Manager — v1.4 Client Workflow</title>
+  <title>Choir Manager — v1.5 Roster Tags & Statistics</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -76,62 +76,52 @@
     <div class="top">
       <div class="top-header-row">
         <div>
-          <div class="eyebrow">Roster & Rotation</div>
+          <div class="eyebrow">Roster & Tags</div>
           <h1>Singers</h1>
         </div>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
       </div>
-      <div class="sub">Search singers, view languages & show history.</div>
+      <div class="sub">Filter by membership, language & eligibility.</div>
     </div>
     <div class="content">
-      <button class="btn soft full" style="margin-bottom:12px" onclick="openNewSinger()">＋ Add new singer</button>
-      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="renderSingers()" style="margin-bottom:10px">
-      <div class="grid2" style="margin-bottom:14px">
-        <select id="singerTypeFilter" onchange="renderSingers()">
-          <option value="All">All Work Types</option>
-          <option value="Both">Both (Perf & Rec)</option>
-          <option value="Performance">Performance</option>
-          <option value="Recording">Recording</option>
-        </select>
-        <select id="singerLangFilter" onchange="renderSingers()">
-          <option value="All">All Languages</option>
-          <option value="Tamil">Tamil</option>
-          <option value="English">English</option>
-          <option value="Hindi">Hindi</option>
-          <option value="Malayalam">Malayalam</option>
-        </select>
+      <div class="row" style="margin-bottom:12px; gap:8px">
+        <button class="btn soft full" style="flex:1" onclick="openNewSinger()">＋ Add new singer</button>
+        <button class="btn ghost" onclick="openTagManager()">🏷️ Tags</button>
       </div>
+      
+      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="renderSingers()" style="margin-bottom:10px">
+      
+      <!-- Shared Tag Filter UI -->
+      <div id="singerFilterBar"></div>
+
       <div id="singerList"></div>
     </div>
   </div>
 
-  <!-- LOOKS SCREEN -->
-  <div id="looks" class="screen">
+  <!-- STATISTICS SCREEN (Replaces Looks in Primary Nav) -->
+  <div id="statistics" class="screen">
     <div class="top">
       <div class="top-header-row">
         <div>
-          <div class="eyebrow">Outfit Moodboards</div>
-          <h1>Looks</h1>
+          <div class="eyebrow">Roster Analytics</div>
+          <h1>Statistics</h1>
         </div>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
       </div>
-      <div class="sub">Reusable dress codes and styling notes for shows.</div>
+      <div class="sub">Objective show counts, rotation & roster strength.</div>
     </div>
-    <div class="content">
-      <button class="btn soft full" style="margin-bottom:14px" onclick="openNewLook()">＋ Create new look</button>
-      <div id="looksList"></div>
-    </div>
+    <div class="content" id="statisticsBody"></div>
   </div>
 
   <!-- FAB -->
   <button id="fab" class="fab" onclick="openNew('enquiry')" aria-label="New enquiry">+</button>
 
-  <!-- BOTTOM NAVIGATION -->
+  <!-- BOTTOM NAVIGATION (v1.5: Home, Calendar, Singers, Statistics) -->
   <div class="nav">
     <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
     <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
     <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Singers</button>
-    <button data-screen="looks" onclick="go('looks')"><span class="ico">🎨</span>Looks</button>
+    <button data-screen="statistics" onclick="go('statistics')"><span class="ico">📊</span>Statistics</button>
   </div>
 </div>
 
@@ -227,6 +217,7 @@
       <button class="btn ghost small" onclick="closeModal('replaceModal')">Close</button>
     </div>
     <div class="notice" id="replaceNotice">Showing available singers with show history context.</div>
+    <div id="replaceFilterBar"></div>
     <div id="replacementList"></div>
   </div>
 </div>
@@ -258,18 +249,19 @@
       </div>
       <button class="btn ghost small" onclick="closeModal('assignModal')">Close</button>
     </div>
-    <div id="assignList" style="margin-top:12px"></div>
+    <div id="assignFilterBar" style="margin-top:10px"></div>
+    <div id="assignList" style="margin-top:10px"></div>
   </div>
 </div>
 
-<!-- MODAL: NEW SINGER -->
+<!-- MODAL: NEW / EDIT SINGER (WITH TAG PILLS) -->
 <div id="newSingerModal" class="modalwrap" onclick="if(event.target===this)closeModal('newSingerModal')">
   <div class="modal">
     <div class="handle"></div>
     <div class="row between">
       <div>
         <div class="eyebrow">Roster</div>
-        <h2>Add new singer</h2>
+        <h2 id="singerModalTitle">Add new singer</h2>
       </div>
       <button class="btn ghost small" onclick="closeModal('newSingerModal')">Close</button>
     </div>
@@ -277,57 +269,60 @@
     <label>Name</label>
     <input id="sName" placeholder="e.g. John / Aishwarya">
 
-    <div class="form2">
-      <div>
-        <label>Gender</label>
-        <select id="sGender"><option>Female</option><option>Male</option></select>
-      </div>
-      <div>
-        <label>Work Suitability</label>
-        <select id="sType"><option>Both</option><option>Performance</option><option>Recording</option></select>
-      </div>
-    </div>
+    <label>Gender</label>
+    <select id="sGender"><option value="Female">Female</option><option value="Male">Male</option></select>
 
-    <label>Languages</label>
-    <div class="tagrow" id="sLangsGroup">
-      <button class="pill" onclick="this.classList.toggle('on')">Tamil</button>
-      <button class="pill" onclick="this.classList.toggle('on')">English</button>
-      <button class="pill" onclick="this.classList.toggle('on')">Hindi</button>
-      <button class="pill" onclick="this.classList.toggle('on')">Malayalam</button>
-    </div>
+    <label>Assigned Tags</label>
+    <div class="tagrow" id="sTagsGroup" style="margin-top:6px"></div>
 
-    <button class="btn primary full" style="margin-top:24px" onclick="saveNewSinger()">Save Singer</button>
+    <button class="btn primary full" style="margin-top:24px" onclick="saveSinger()">Save Singer</button>
   </div>
 </div>
 
-<!-- MODAL: NEW / EDIT LOOK -->
-<div id="newLookModal" class="modalwrap" onclick="if(event.target===this)closeModal('newLookModal')">
+<!-- MODAL: TAG MANAGER -->
+<div id="tagModal" class="modalwrap" onclick="if(event.target===this)closeModal('tagModal')">
   <div class="modal">
     <div class="handle"></div>
     <div class="row between">
       <div>
-        <div class="eyebrow">Moodboard</div>
-        <h2>Outfit Look Details</h2>
+        <div class="eyebrow">System Taxonomy</div>
+        <h2>Manage Tags</h2>
       </div>
-      <button class="btn ghost small" onclick="closeModal('newLookModal')">Close</button>
+      <button class="btn ghost small" onclick="closeModal('tagModal')">Close</button>
     </div>
 
-    <label>Look Name</label>
-    <input id="lName" placeholder="e.g. Black & Gold Elegance">
+    <div class="card compact" style="margin-top:14px">
+      <div class="title">Create Custom Tag</div>
+      <div class="form2" style="margin-top:8px">
+        <input id="newTagName" placeholder="Tag Name (e.g. Lead, Soprano)">
+        <select id="newTagGroup">
+          <option value="custom">Custom</option>
+          <option value="membership">Membership</option>
+          <option value="language">Language</option>
+          <option value="eligibility">Eligibility</option>
+        </select>
+      </div>
+      <button class="btn primary full" style="margin-top:10px" onclick="createCustomTag()">+ Add Tag</button>
+    </div>
 
-    <label>Color Scheme Notes</label>
-    <input id="lColors" placeholder="e.g. Matte black base with warm gold embroidery">
+    <div class="section"><h2>All Tag Definitions</h2></div>
+    <div id="tagManagerList"></div>
+  </div>
+</div>
 
-    <label>Women's Dress Instructions</label>
-    <textarea id="lWomen" placeholder="e.g. Black silk saree with gold border, gold traditional jewelry"></textarea>
-
-    <label>Men's Dress Instructions</label>
-    <textarea id="lMen" placeholder="e.g. Black bandhgala suit, gold pocket square"></textarea>
-
-    <label>General Notes / Stage Lighting</label>
-    <textarea id="lNotes" placeholder="e.g. Stage lighting friendly, avoid shiny metals"></textarea>
-
-    <button class="btn primary full" style="margin-top:16px" onclick="saveLook()">Save Look</button>
+<!-- MODAL: ACTIONABLE STATISTICS DRILL-DOWN -->
+<div id="drilldownModal" class="modalwrap" onclick="if(event.target===this)closeModal('drilldownModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Statistics Drill-Down</div>
+        <h2 id="drilldownTitle">Metric List</h2>
+        <div class="sub" id="drilldownSub">Singers list</div>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('drilldownModal')">Close</button>
+    </div>
+    <div id="drilldownList" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -344,24 +339,21 @@
     </div>
 
     <div class="card compact" style="margin-top:14px">
-      <div class="row between"><div class="title">v1.4.1</div><span class="pill confirmed">Active Version</span></div>
+      <div class="row between"><div class="title">v1.5.0</div><span class="pill confirmed">Active Version</span></div>
       <div class="muted" style="margin-top:6px">
-        - Client Workflow Pass (Audit & Data Cleanup).<br>
-        - Historical events preserve strictly spreadsheet data.<br>
-        - Work Type inferred only when explicitly named.<br>
-        - Per-event availability (Not asked, Asked, Available, Unavailable).<br>
-        - Separate Manager vs Singer lineup logic.<br>
-        - Find Replacement candidate matching.<br>
-        - Derived rotation history on Singer cards.
+        - Roster Tags & Statistics Pass.<br>
+        - Reusable Tag model (Membership, Language, Eligibility, Custom).<br>
+        - Multi-group filtering (OR within group, AND across groups).<br>
+        - Dedicated Statistics tab with Period Switcher (Month/Year/All Time).<br>
+        - Rotation Distribution Buckets (0, 1-2, 3-5, 6+ shows).<br>
+        - Membership usage comparison.<br>
+        - Active Roster Strength & Coverage.<br>
+        - Actionable Statistics Drill-down Modal.<br>
+        - Excludes demo test fixtures from real client metrics.
       </div>
     </div>
 
-    <div class="card compact">
-      <div class="title">v1.0.0</div>
-      <div class="muted" style="margin-top:4px">- Initial working prototype.</div>
-    </div>
-
-    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to Client Seed Data)</button>
+    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to v1.5 Seed Data)</button>
   </div>
 </div>
 

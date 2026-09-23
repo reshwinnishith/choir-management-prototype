@@ -1,56 +1,74 @@
-// Choir Manager - v1.4 Client Workflow Pass (Data Cleanup & Fixture Audit Pass)
+// Choir Manager - v1.5 Roster Tags + Statistics
 
-const CURRENT_VERSION = 'v1.4.1';
+const CURRENT_VERSION = 'v1.5.0';
 
-// Real Seed Data derived strictly from Client Spreadsheet GID 1422271718, 0, 462764558
+// Structured Tag Definitions Model
+const defaultTags = [
+  // Membership
+  { id: 'tag_old_member', name: 'Old Member', group: 'membership', active: true },
+  { id: 'tag_new_member', name: 'New Member', group: 'membership', active: true },
+  // Language
+  { id: 'tag_tamil', name: 'Tamil', group: 'language', active: true },
+  { id: 'tag_english', name: 'English', group: 'language', active: true },
+  { id: 'tag_hindi', name: 'Hindi', group: 'language', active: true },
+  { id: 'tag_malayalam', name: 'Malayalam', group: 'language', active: true },
+  // Eligibility
+  { id: 'tag_performance', name: 'Performance', group: 'eligibility', active: true },
+  { id: 'tag_recording', name: 'Recording', group: 'eligibility', active: true }
+];
+
+// Initial Roster Seed Data mapped to Tag IDs
 const initialPeople = [
-  { id: 'p_roe', name: 'Roe', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_anuj', name: 'Anuj', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_abraham', name: 'Abraham', gender: 'Male', langs: ['English'], type: 'Live', active: true },
-  { id: 'p_arnav', name: 'Arnav', gender: 'Male', langs: ['English', 'Hindi'], type: 'Recording', active: true },
-  { id: 'p_anjana', name: 'Anjana', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_nandhika', name: 'Nandhika', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_bryan', name: 'Bryan', gender: 'Male', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_chakki', name: 'Chakki', gender: 'Female', langs: ['Tamil', 'Malayalam'], type: 'Both', active: true },
-  { id: 'p_leon', name: 'Leon', gender: 'Male', langs: ['English'], type: 'Live', active: true },
-  { id: 'p_ritin', name: 'Ritin', gender: 'Male', langs: ['Malayalam', 'English'], type: 'Live', active: true },
-  { id: 'p_reshwin', name: 'Reshwin', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_reuben', name: 'Reuben', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_serene', name: 'Serene', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_sheena', name: 'Sheena', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_sneha', name: 'Sneha', gender: 'Female', langs: ['Tamil', 'Hindi'], type: 'Both', active: true },
-  { id: 'p_tanya', name: 'Tanya', gender: 'Female', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_tincy', name: 'Tincy', gender: 'Female', langs: ['Tamil', 'Malayalam'], type: 'Both', active: true },
-  { id: 'p_tofer', name: 'Tofer', gender: 'Male', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_vaimu', name: 'Vaimu', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_varsha', name: 'Varsha', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_varshini', name: 'Varshini', gender: 'Female', langs: ['Tamil'], type: 'Live', active: true },
-  { id: 'p_pragee', name: 'Pragee', gender: 'Female', langs: ['Tamil'], type: 'Live', active: true },
+  // Old Members
+  { id: 'p_roe', name: 'Roe', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_anuj', name: 'Anuj', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_abraham', name: 'Abraham', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_performance'], active: true },
+  { id: 'p_arnav', name: 'Arnav', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_hindi', 'tag_recording'], active: true },
+  { id: 'p_anjana', name: 'Anjana', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_nandhika', name: 'Nandhika', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_bryan', name: 'Bryan', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_chakki', name: 'Chakki', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_leon', name: 'Leon', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_performance'], active: true },
+  { id: 'p_ritin', name: 'Ritin', gender: 'Male', tagIds: ['tag_old_member', 'tag_malayalam', 'tag_english', 'tag_performance'], active: true },
+  { id: 'p_reshwin', name: 'Reshwin', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_reuben', name: 'Reuben', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_serene', name: 'Serene', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_sheena', name: 'Sheena', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_sneha', name: 'Sneha', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_hindi', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_tanya', name: 'Tanya', gender: 'Female', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_tincy', name: 'Tincy', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_tofer', name: 'Tofer', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_vaimu', name: 'Vaimu', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_varsha', name: 'Varsha', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_varshini', name: 'Varshini', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
+  { id: 'p_pragee', name: 'Pragee', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
+
   // New Members
-  { id: 'p_aishu', name: 'Aishu', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_angel', name: 'Angel', gender: 'Female', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_dyuti', name: 'Dyuti', gender: 'Female', langs: ['English', 'Hindi'], type: 'Recording', active: true },
-  { id: 'p_geejay', name: 'Geejay', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_joe', name: 'Joe', gender: 'Male', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_kevin', name: 'Kevin', gender: 'Male', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_mark', name: 'Mark', gender: 'Male', langs: ['English', 'Tamil'], type: 'Both', active: true },
-  { id: 'p_nattu', name: 'Nattu', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_olivia', name: 'Olivia', gender: 'Female', langs: ['English'], type: 'Both', active: true },
-  { id: 'p_pranav', name: 'Pranav', gender: 'Male', langs: ['Tamil', 'English'], type: 'Live', active: true },
-  { id: 'p_sai', name: 'Sai', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_sebi', name: 'Sebi', gender: 'Male', langs: ['Tamil', 'Malayalam'], type: 'Both', active: true },
-  { id: 'p_yazhini', name: 'Yazhini', gender: 'Female', langs: ['Tamil'], type: 'Live', active: true },
-  { id: 'p_waveen', name: 'Waveen', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_luchy', name: 'Luchy', gender: 'Female', langs: ['English'], type: 'Live', active: true },
-  { id: 'p_lucky', name: 'Lucky', gender: 'Male', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  // Extra Roster
-  { id: 'p_alfred', name: 'Alfred', gender: 'Male', langs: ['English'], type: 'Live', active: true },
-  { id: 'p_moncy', name: 'Moncy', gender: 'Male', langs: ['Malayalam', 'English'], type: 'Live', active: true },
-  { id: 'p_aishwarya', name: 'Aishwarya', gender: 'Female', langs: ['Tamil', 'English'], type: 'Both', active: true },
-  { id: 'p_ivan', name: 'Ivan', gender: 'Male', langs: ['English'], type: 'Live', active: true },
-  { id: 'p_sukanti', name: 'Sukanti', gender: 'Female', langs: ['Hindi', 'English'], type: 'Both', active: true },
-  { id: 'p_rahul', name: 'Rahul', gender: 'Male', langs: ['Tamil', 'Hindi', 'English'], type: 'Both', active: true },
-  { id: 'p_snigdha', name: 'Snigdha', gender: 'Female', langs: ['Tamil', 'English'], type: 'Recording', active: true }
+  { id: 'p_aishu', name: 'Aishu', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_angel', name: 'Angel', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_dyuti', name: 'Dyuti', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_hindi', 'tag_recording'], active: true },
+  { id: 'p_geejay', name: 'Geejay', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_joe', name: 'Joe', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_kevin', name: 'Kevin', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_mark', name: 'Mark', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_nattu', name: 'Nattu', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_olivia', name: 'Olivia', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_pranav', name: 'Pranav', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance'], active: true },
+  { id: 'p_sai', name: 'Sai', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_sebi', name: 'Sebi', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_yazhini', name: 'Yazhini', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_performance'], active: true },
+  { id: 'p_waveen', name: 'Waveen', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+  { id: 'p_luchy', name: 'Luchy', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance'], active: true },
+  { id: 'p_lucky', name: 'Lucky', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
+
+  // Spreadsheet 3rd Column Members (Recording Only)
+  { id: 'p_alfred', name: 'Alfred', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_moncy', name: 'Moncy', gender: 'Male', tagIds: ['tag_new_member', 'tag_malayalam', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_aishwarya', name: 'Aishwarya', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_ivan', name: 'Ivan', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_sukanti', name: 'Sukanti', gender: 'Female', tagIds: ['tag_new_member', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_rahul', name: 'Rahul', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
+  { id: 'p_snigdha', name: 'Snigdha', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true }
 ];
 
 const initialLooks = [
@@ -71,35 +89,17 @@ const initialLooks = [
     womenNotes: 'Pastel ethnic gown or lightweight saree.',
     menNotes: 'Pastel kurta or light beige formal trousers and soft pink shirt.',
     generalNotes: 'Daytime acoustic & wedding functions.'
-  },
-  {
-    id: 'look_formal_black',
-    name: 'Formal Corporate Black',
-    bgGradient: 'linear-gradient(135deg, #22252a, #485460)',
-    colorNotes: 'Solid matte black outfits.',
-    womenNotes: 'Black blazer suit or elegant plain black formal dress.',
-    menNotes: 'Black suit with crisp collar, no ties needed.',
-    generalNotes: 'Standard corporate gala & award ceremony look.'
-  },
-  {
-    id: 'look_festive_red_gold',
-    name: 'Festive Red & Gold',
-    bgGradient: 'linear-gradient(135deg, #9a2f2f, #d8b56b)',
-    colorNotes: 'Deep maroon / crimson red and bright gold.',
-    womenNotes: 'Traditional red silk saree with gold zari work.',
-    menNotes: 'Maroon kurta with gold woven waistcoat.',
-    generalNotes: 'Grand audio launches and festive concert specials.'
   }
 ];
 
-// STRICT HISTORICAL IMPORT DATA (Unsupported spreadsheet fields set to "")
+// STRICT HISTORICAL IMPORT DATA (Unsupported fields set to "")
 const initialEvents = [
   {
     id: 1,
     name: 'Staccato',
     status: 'confirmed',
     category: '',
-    workType: '', // Unspecified (Show name does not explicitly contain work type keyword)
+    workType: '',
     date: '2026-08-08',
     time: '',
     client: '',
@@ -126,7 +126,7 @@ const initialEvents = [
     name: 'Ashwin Recording',
     status: 'confirmed',
     category: '',
-    workType: 'Recording', // Explicitly in show name
+    workType: 'Recording',
     date: '2026-08-12',
     time: '',
     client: '',
@@ -156,7 +156,7 @@ const initialEvents = [
     name: 'Music Video Shoot - Vijay',
     status: 'confirmed',
     category: '',
-    workType: 'Shoot', // Explicitly in show name
+    workType: 'Shoot',
     date: '2026-08-20',
     time: '',
     client: '',
@@ -181,7 +181,7 @@ const initialEvents = [
     name: 'Staccato - Recording',
     status: 'confirmed',
     category: '',
-    workType: 'Recording', // Explicitly in show name
+    workType: 'Recording',
     date: '2026-08-23',
     time: '',
     client: '',
@@ -217,7 +217,7 @@ const initialEvents = [
     name: 'Staccato Rehearsal',
     status: 'confirmed',
     category: '',
-    workType: 'Rehearsal', // Explicitly in show name
+    workType: 'Rehearsal',
     date: '2026-08-26',
     time: '',
     client: '',
@@ -251,7 +251,7 @@ const initialEvents = [
     name: 'Staccato Rehersal',
     status: 'confirmed',
     category: '',
-    workType: 'Rehearsal', // Explicitly in show name ("Rehersal")
+    workType: 'Rehearsal',
     date: '2026-08-27',
     time: '',
     client: '',
@@ -284,7 +284,7 @@ const initialEvents = [
     name: 'Staccato Sound check',
     status: 'confirmed',
     category: '',
-    workType: 'Soundcheck', // Explicitly in show name ("Sound check")
+    workType: 'Soundcheck',
     date: '2026-08-28',
     time: '',
     client: '',
@@ -323,7 +323,7 @@ const initialEvents = [
     name: 'Sardar Audio launch',
     status: 'confirmed',
     category: '',
-    workType: '', // Unspecified
+    workType: '',
     date: '2026-08-31',
     time: '',
     client: '',
@@ -358,7 +358,7 @@ const initialEvents = [
     name: 'ELFE ACT (with band)',
     status: 'confirmed',
     category: '',
-    workType: '', // Unspecified
+    workType: '',
     date: '2026-09-03',
     time: '',
     client: '',
@@ -387,7 +387,7 @@ const initialEvents = [
     name: 'Staccato - teachers day',
     status: 'confirmed',
     category: '',
-    workType: '', // Unspecified
+    workType: '',
     date: '2026-09-05',
     time: '',
     client: '',
@@ -412,7 +412,7 @@ const initialEvents = [
     name: 'ELFE ACT',
     status: 'confirmed',
     category: '',
-    workType: '', // Unspecified
+    workType: '',
     date: '2026-09-06',
     time: '',
     client: '',
@@ -436,7 +436,7 @@ const initialEvents = [
       { name: 'Reuben', status: 'Available' }
     ]
   },
-  // UPCOMING DEMO FIXTURES (explicitly flagged for prototype testing)
+  // UPCOMING DEMO FIXTURES
   {
     id: 12,
     name: 'Grand Royal Wedding',
@@ -509,7 +509,7 @@ const initialEvents = [
   }
 ];
 
-// LocalStorage State Management
+// LocalStorage State Management with Migration to v1.5.0
 function getStorage(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -527,11 +527,48 @@ function setStorage(key, val) {
   }
 }
 
-// Check version migration
 let savedVersion = localStorage.getItem('choirProtoVersion');
-if (savedVersion !== CURRENT_VERSION) {
+
+// Initialize Tags
+let tags = getStorage('choirProtoTags', defaultTags);
+
+// Migrate or load People
+let loadedPeople = getStorage('choirProtoPeople', null);
+if (!loadedPeople || savedVersion !== CURRENT_VERSION) {
+  // Migration logic from v1.4.1 legacy fields to v1.5 tagIds
+  if (loadedPeople && Array.isArray(loadedPeople)) {
+    loadedPeople.forEach(p => {
+      if (!p.tagIds) {
+        const tIds = [];
+        // Membership
+        const nameLower = p.name.toLowerCase();
+        const oldSet = new Set(['roe','anuj','abraham','arnav','anjana','nandhika','bryan','chakki','leon','ritin','reshwin','reuben','serene','sheena','sneha','tanya','tincy','tofer','vaimu','varsha','varshini','pragee']);
+        if (oldSet.has(nameLower)) tIds.push('tag_old_member');
+        else tIds.push('tag_new_member');
+
+        // Languages
+        (p.langs || []).forEach(l => {
+          if (l === 'Tamil') tIds.push('tag_tamil');
+          if (l === 'English') tIds.push('tag_english');
+          if (l === 'Hindi') tIds.push('tag_hindi');
+          if (l === 'Malayalam') tIds.push('tag_malayalam');
+        });
+
+        // Eligibility
+        if (p.type === 'Both') { tIds.push('tag_performance'); tIds.push('tag_recording'); }
+        else if (p.type === 'Live') { tIds.push('tag_performance'); }
+        else if (p.type === 'Recording') { tIds.push('tag_recording'); }
+
+        p.tagIds = Array.from(new Set(tIds));
+      }
+    });
+  } else {
+    loadedPeople = initialPeople;
+  }
+
   localStorage.setItem('choirProtoVersion', CURRENT_VERSION);
-  localStorage.setItem('choirProtoPeople', JSON.stringify(initialPeople));
+  localStorage.setItem('choirProtoTags', JSON.stringify(tags));
+  localStorage.setItem('choirProtoPeople', JSON.stringify(loadedPeople));
   localStorage.setItem('choirProtoEvents', JSON.stringify(initialEvents));
   localStorage.setItem('choirProtoLooks', JSON.stringify(initialLooks));
 }
@@ -540,6 +577,9 @@ let people = getStorage('choirProtoPeople', initialPeople);
 let events = getStorage('choirProtoEvents', initialEvents);
 let looks = getStorage('choirProtoLooks', initialLooks);
 
+// Global State Variables
+let selectedRosterTagIds = [];
+let currentStatsPeriod = 'month'; // 'month' | 'year' | 'all'
 let newStatus = 'enquiry';
 let pickedWorkType = 'Unspecified';
 let editEventId = null;
@@ -571,6 +611,34 @@ function workTypePillClass(type) {
   if (t.includes('shoot')) return 'work-shoot';
   if (t.includes('sound')) return 'work-soundcheck';
   return 'pill';
+}
+
+function getTagGroupPillClass(group) {
+  if (group === 'membership') return 'tag-membership';
+  if (group === 'language') return 'tag-language';
+  if (group === 'eligibility') return 'tag-eligibility';
+  return 'tag-custom';
+}
+
+// Tag Filter Engine: Within SAME group: OR, Across DIFFERENT groups: AND
+function filterPeopleByTags(peopleList, selectedTagIds) {
+  if (!selectedTagIds || selectedTagIds.length === 0) return peopleList;
+
+  const groupedTagIds = {};
+  selectedTagIds.forEach(id => {
+    const t = tags.find(x => x.id === id);
+    if (t) {
+      if (!groupedTagIds[t.group]) groupedTagIds[t.group] = [];
+      groupedTagIds[t.group].push(id);
+    }
+  });
+
+  return peopleList.filter(p => {
+    return Object.keys(groupedTagIds).every(groupKey => {
+      const allowedInGroup = groupedTagIds[groupKey];
+      return allowedInGroup.some(tagId => (p.tagIds || []).includes(tagId));
+    });
+  });
 }
 
 // Derive Show History for People / Singers dynamically from events
@@ -663,8 +731,8 @@ function render() {
   // Singers Screen
   renderSingers();
 
-  // Looks Screen
-  renderLooks();
+  // Statistics Screen
+  renderStatistics();
 }
 
 // Needs Attention Section on Home Screen
@@ -751,20 +819,65 @@ function focusDay(ds) {
   if (items.length) openDetail(items[0].id);
 }
 
+// Render Filter Bar Helper Component
+function renderTagFilterUI(containerId, activeTagIds, toggleTagFnName, clearFnName) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const groups = ['membership', 'language', 'eligibility', 'custom'];
+  const groupTitles = { membership: 'Membership', language: 'Language', eligibility: 'Eligibility', custom: 'Custom Tags' };
+
+  let html = `<div class="filter-box">`;
+  
+  groups.forEach(gKey => {
+    const groupTags = tags.filter(t => t.active && t.group === gKey);
+    if (!groupTags.length) return;
+
+    html += `<div class="filter-group-title">${groupTitles[gKey]}</div><div class="tagrow">`;
+    groupTags.forEach(t => {
+      const isOn = activeTagIds.includes(t.id);
+      const pillCls = getTagGroupPillClass(t.group);
+      html += `<button class="pill ${pillCls} ${isOn ? 'on' : ''}" onclick="${toggleTagFnName}('${t.id}')">${t.name}</button>`;
+    });
+    html += `</div>`;
+  });
+
+  if (activeTagIds.length > 0) {
+    html += `<div class="row between" style="margin-top:10px; border-top:1px solid var(--line); padding-top:8px">
+      <span class="tiny" style="font-weight:700">${activeTagIds.length} active filter${activeTagIds.length > 1 ? 's' : ''}</span>
+      <button class="btn ghost small" style="padding:4px 8px; font-size:11px" onclick="${clearFnName}()">Clear all</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function toggleRosterFilterTag(tagId) {
+  if (selectedRosterTagIds.includes(tagId)) {
+    selectedRosterTagIds = selectedRosterTagIds.filter(id => id !== tagId);
+  } else {
+    selectedRosterTagIds.push(tagId);
+  }
+  renderSingers();
+}
+
+function clearRosterFilterTags() {
+  selectedRosterTagIds = [];
+  renderSingers();
+}
+
 // Singers Screen Render
 function renderSingers() {
   const q = (document.getElementById('singerSearch')?.value || '').toLowerCase();
-  const typeFilter = document.getElementById('singerTypeFilter')?.value || 'All';
-  const langFilter = document.getElementById('singerLangFilter')?.value || 'All';
+  
+  // Render tag filter bar
+  renderTagFilterUI('singerFilterBar', selectedRosterTagIds, 'toggleRosterFilterTag', 'clearRosterFilterTags');
 
-  const filtered = people.filter(p => {
+  // Filter people using text search & tag filter engine
+  const tagFiltered = filterPeopleByTags(people, selectedRosterTagIds);
+  const filtered = tagFiltered.filter(p => {
     if (q && !p.name.toLowerCase().includes(q)) return false;
-    if (typeFilter !== 'All') {
-      if (typeFilter === 'Performance' && p.type !== 'Performance' && p.type !== 'Both') return false;
-      if (typeFilter === 'Recording' && p.type !== 'Recording' && p.type !== 'Both') return false;
-      if (typeFilter === 'Both' && p.type !== 'Both') return false;
-    }
-    if (langFilter !== 'All' && !(p.langs || []).includes(langFilter)) return false;
     return true;
   });
 
@@ -773,6 +886,8 @@ function renderSingers() {
 
   listEl.innerHTML = filtered.length ? filtered.map(p => {
     const history = getSingerHistory(p.name);
+    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+
     return `
       <div class="card compact">
         <div class="row between">
@@ -780,13 +895,15 @@ function renderSingers() {
             <div class="avatar">${p.name[0]}</div>
             <div>
               <div class="title">${p.name} <span class="tiny">(${p.gender})</span></div>
-              <div class="muted">${(p.langs || []).join(' · ')} · ${p.type}</div>
-              <div class="tiny" style="margin-top:2px; font-weight:700; color:var(--brand)">
+              <div class="tagrow" style="margin-top:4px">
+                ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+              </div>
+              <div class="tiny" style="margin-top:4px; font-weight:700; color:var(--brand)">
                 📊 ${history.totalShows} shows · Last: ${history.lastShowDate}
               </div>
             </div>
           </div>
-          <button class="btn danger small" onclick="deleteGlobalSinger('${p.name}')">Remove</button>
+          <button class="btn ghost small" onclick="openEditSingerModal('${p.id}')">Edit</button>
         </div>
         ${history.recentShows.length ? `
           <div class="history-list">
@@ -801,29 +918,280 @@ function renderSingers() {
         ` : ''}
       </div>
     `;
-  }).join('') : '<div class="empty">No singers found.</div>';
+  }).join('') : '<div class="empty">No singers found matching filters.</div>';
 }
 
-// Looks Screen Render
-function renderLooks() {
-  const container = document.getElementById('looksList');
+// STATISTICS TAB ENGINE (Excludes Demo Fixtures)
+function setStatsPeriod(period) {
+  currentStatsPeriod = period;
+  renderStatistics();
+}
+
+function renderStatistics() {
+  const container = document.getElementById('statisticsBody');
   if (!container) return;
 
-  container.innerHTML = looks.map(l => `
-    <div class="card" style="padding:14px">
-      <div class="look-card-preview" style="background:${l.bgGradient || 'linear-gradient(135deg,#181818,#d6b45b)'}">
-        <div style="font-size:18px; font-weight:800">${l.name}</div>
+  // Real events only (EXCLUDING demo fixtures)
+  const realEvents = events.filter(e => !e.isDemoFixture);
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonthStr = `${curYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  let filteredEvents = realEvents;
+  let periodLabel = 'All Time';
+
+  if (currentStatsPeriod === 'month') {
+    filteredEvents = realEvents.filter(e => e.date.startsWith(curMonthStr));
+    periodLabel = now.toLocaleString('en', { month: 'long', year: 'numeric' });
+  } else if (currentStatsPeriod === 'year') {
+    filteredEvents = realEvents.filter(e => e.date.startsWith(String(curYear)));
+    periodLabel = `Year ${curYear}`;
+  }
+
+  // Summary Overview Metrics
+  const totalEvents = filteredEvents.length;
+  const confirmedCount = filteredEvents.filter(e => e.status === 'confirmed').length;
+  const enquiryCount = filteredEvents.filter(e => e.status === 'enquiry').length;
+
+  const uniqueSingersUsed = new Set();
+  let totalSingersNeededSum = 0;
+
+  filteredEvents.forEach(e => {
+    totalSingersNeededSum += (e.singersCount || 0);
+    (e.assignedSingers || []).forEach(s => uniqueSingersUsed.add(s.name.toLowerCase()));
+    (e.managers || []).forEach(m => uniqueSingersUsed.add(m.toLowerCase()));
+  });
+
+  const activeRosterCount = people.filter(p => p.active !== false).length;
+  const singersUsedCount = uniqueSingersUsed.size;
+  const avgSingersPerEvent = totalEvents > 0 ? (totalSingersNeededSum / totalEvents).toFixed(1) : 0;
+
+  // Work Type Breakdown
+  const workTypeCounts = { Performance: 0, Recording: 0, Rehearsal: 0, Shoot: 0, Soundcheck: 0, Unspecified: 0 };
+  filteredEvents.forEach(e => {
+    const wt = e.workType || 'Unspecified';
+    if (workTypeCounts[wt] !== undefined) workTypeCounts[wt]++;
+    else workTypeCounts.Unspecified++;
+  });
+
+  // Category Breakdown
+  const categoryCounts = { Wedding: 0, Corporate: 0, 'Private Event': 0, Concert: 0, Unspecified: 0 };
+  filteredEvents.forEach(e => {
+    const cat = e.category || 'Unspecified';
+    if (categoryCounts[cat] !== undefined) categoryCounts[cat]++;
+    else categoryCounts.Unspecified++;
+  });
+
+  // Singer Show Counts in Selected Period
+  const personShowCounts = {};
+  people.forEach(p => { personShowCounts[p.name] = 0; });
+
+  filteredEvents.forEach(e => {
+    const assignedNames = new Set([
+      ...(e.assignedSingers || []).map(s => s.name),
+      ...(e.managers || [])
+    ]);
+    assignedNames.forEach(name => {
+      const match = people.find(p => p.name.toLowerCase() === name.toLowerCase());
+      if (match) {
+        personShowCounts[match.name] = (personShowCounts[match.name] || 0) + 1;
+      }
+    });
+  });
+
+  // Rotation Buckets
+  const bucket0 = [], bucket1_2 = [], bucket3_5 = [], bucket6Plus = [];
+  people.forEach(p => {
+    const cnt = personShowCounts[p.name] || 0;
+    if (cnt === 0) bucket0.push(p);
+    else if (cnt <= 2) bucket1_2.push(p);
+    else if (cnt <= 5) bucket3_5.push(p);
+    else bucket6Plus.push(p);
+  });
+
+  // Most Active & Zero Show
+  const sortedByActivity = [...people].sort((a, b) => (personShowCounts[b.name] || 0) - (personShowCounts[a.name] || 0));
+  const mostActiveList = sortedByActivity.slice(0, 5);
+
+  // Membership Comparison
+  const oldMembers = people.filter(p => (p.tagIds || []).includes('tag_old_member'));
+  const newMembers = people.filter(p => (p.tagIds || []).includes('tag_new_member'));
+
+  const oldUsed = oldMembers.filter(p => (personShowCounts[p.name] || 0) > 0);
+  const oldZero = oldMembers.filter(p => (personShowCounts[p.name] || 0) === 0);
+
+  const newUsed = newMembers.filter(p => (personShowCounts[p.name] || 0) > 0);
+  const newZero = newMembers.filter(p => (personShowCounts[p.name] || 0) === 0);
+
+  // Roster Coverage (Active Roster Combinations)
+  const coverageCombos = [
+    { label: 'Tamil · Performance', tag1: 'tag_tamil', tag2: 'tag_performance' },
+    { label: 'Tamil · Recording', tag1: 'tag_tamil', tag2: 'tag_recording' },
+    { label: 'English · Performance', tag1: 'tag_english', tag2: 'tag_performance' },
+    { label: 'English · Recording', tag1: 'tag_english', tag2: 'tag_recording' },
+    { label: 'Malayalam · Performance', tag1: 'tag_malayalam', tag2: 'tag_performance' },
+    { label: 'Malayalam · Recording', tag1: 'tag_malayalam', tag2: 'tag_recording' },
+    { label: 'Hindi · Performance', tag1: 'tag_hindi', tag2: 'tag_performance' },
+    { label: 'Hindi · Recording', tag1: 'tag_hindi', tag2: 'tag_recording' }
+  ];
+
+  container.innerHTML = `
+    <!-- Period Selector Tabs -->
+    <div class="period-tabs">
+      <button class="${currentStatsPeriod === 'month' ? 'active' : ''}" onclick="setStatsPeriod('month')">This Month</button>
+      <button class="${currentStatsPeriod === 'year' ? 'active' : ''}" onclick="setStatsPeriod('year')">This Year</button>
+      <button class="${currentStatsPeriod === 'all' ? 'active' : ''}" onclick="setStatsPeriod('all')">All Time</button>
+    </div>
+
+    <!-- Overview Stat Cards -->
+    <div class="grid3">
+      <div class="stat"><span class="muted">Events</span><b>${totalEvents}</b></div>
+      <div class="stat"><span class="muted">Confirmed</span><b style="color:var(--green)">${confirmedCount}</b></div>
+      <div class="stat"><span class="muted">Enquiries</span><b style="color:var(--amber)">${enquiryCount}</b></div>
+    </div>
+
+    <div class="grid3" style="margin-top:8px">
+      <div class="stat"><span class="muted">Active Roster</span><b>${activeRosterCount}</b></div>
+      <div class="stat"><span class="muted">Singers Used</span><b style="color:var(--brand)">${singersUsedCount}</b></div>
+      <div class="stat"><span class="muted">Avg Singers</span><b>${avgSingersPerEvent}</b></div>
+    </div>
+
+    <!-- Rotation Distribution Buckets (Actionable Drill-down) -->
+    <div class="section"><h2>Rotation Distribution (${periodLabel})</h2></div>
+    <div class="grid2">
+      <div class="card compact clickable" onclick="openStatsDrilldown('Zero Shows (${periodLabel})', 'Singers with 0 assigned shows in ${periodLabel}', getBucketSingers(0))">
+        <div class="row between"><b>0 Shows</b><b style="font-size:20px; color:var(--red)">${bucket0.length} singers</b></div>
+        <div class="tiny" style="margin-top:2px">Tap to view list →</div>
       </div>
-      <div class="muted" style="margin-bottom:8px"><b>Colors:</b> ${l.colorNotes}</div>
-      <div class="tiny" style="margin-bottom:4px"><b>👩 Women:</b> ${l.womenNotes}</div>
-      <div class="tiny" style="margin-bottom:4px"><b>👨 Men:</b> ${l.menNotes}</div>
-      ${l.generalNotes ? `<div class="tiny" style="margin-bottom:8px"><b>📌 Notes:</b> ${l.generalNotes}</div>` : ''}
-      <div class="row between" style="margin-top:10px">
-        <button class="btn ghost small" onclick="openEditLook('${l.id}')">Edit Look</button>
-        <button class="btn danger small" onclick="deleteLook('${l.id}')">Remove</button>
+      <div class="card compact clickable" onclick="openStatsDrilldown('1–2 Shows (${periodLabel})', 'Singers with 1 to 2 shows in ${periodLabel}', getBucketSingers(1,2))">
+        <div class="row between"><b>1–2 Shows</b><b style="font-size:20px">${bucket1_2.length} singers</b></div>
+        <div class="tiny" style="margin-top:2px">Tap to view list →</div>
+      </div>
+      <div class="card compact clickable" onclick="openStatsDrilldown('3–5 Shows (${periodLabel})', 'Singers with 3 to 5 shows in ${periodLabel}', getBucketSingers(3,5))">
+        <div class="row between"><b>3–5 Shows</b><b style="font-size:20px">${bucket3_5.length} singers</b></div>
+        <div class="tiny" style="margin-top:2px">Tap to view list →</div>
+      </div>
+      <div class="card compact clickable" onclick="openStatsDrilldown('6+ Shows (${periodLabel})', 'Singers with 6 or more shows in ${periodLabel}', getBucketSingers(6,999))">
+        <div class="row between"><b>6+ Shows</b><b style="font-size:20px; color:var(--brand)">${bucket6Plus.length} singers</b></div>
+        <div class="tiny" style="margin-top:2px">Tap to view list →</div>
       </div>
     </div>
-  `).join('');
+
+    <!-- Membership Usage Comparison -->
+    <div class="section"><h2>Membership Breakdown</h2></div>
+    <div class="card compact">
+      <div class="row between" style="margin-bottom:8px">
+        <div><b>Old Members (${oldMembers.length})</b></div>
+        <div class="tiny">Used: <b>${oldUsed.length}</b> · Zero: <b style="color:var(--red)" class="clickable" onclick="openStatsDrilldown('Old Members with 0 Shows', 'Old members not assigned in ${periodLabel}', getOldZeroSingers())">${oldZero.length} →</b></div>
+      </div>
+      <div class="row between">
+        <div><b>New Members (${newMembers.length})</b></div>
+        <div class="tiny">Used: <b>${newUsed.length}</b> · Zero: <b style="color:var(--red)" class="clickable" onclick="openStatsDrilldown('New Members with 0 Shows', 'New members not assigned in ${periodLabel}', getNewZeroSingers())">${newZero.length} →</b></div>
+      </div>
+    </div>
+
+    <!-- Event Work Type Breakdown -->
+    <div class="section"><h2>Work Type Breakdown</h2></div>
+    <div class="card compact">
+      ${Object.keys(workTypeCounts).map(wt => {
+        const cnt = workTypeCounts[wt];
+        const pct = totalEvents > 0 ? Math.round((cnt / totalEvents) * 100) : 0;
+        return `
+          <div class="metric-bar-item">
+            <div class="metric-bar-label"><span>${wt}</span><span>${cnt} events (${pct}%)</span></div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <!-- Roster Coverage (Active Roster Combinations) -->
+    <div class="section"><h2>Roster Strength & Coverage</h2></div>
+    <div class="grid2">
+      ${coverageCombos.map(c => {
+        const matched = people.filter(p => (p.tagIds || []).includes(c.tag1) && (p.tagIds || []).includes(c.tag2));
+        return `
+          <div class="card compact clickable" onclick="openStatsDrilldown('${c.label}', 'Active singers holding both ${c.label} tags', getCoverageSingers('${c.tag1}', '${c.tag2}'))">
+            <div class="row between">
+              <span class="muted" style="font-size:12px">${c.label}</span>
+              <b style="font-size:18px">${matched.length}</b>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+// Helpers for Stats Drill-down Lists
+function getBucketSingers(minShows, maxShows = minShows) {
+  const realEvents = events.filter(e => !e.isDemoFixture);
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonthStr = `${curYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  let filteredEvents = realEvents;
+  if (currentStatsPeriod === 'month') filteredEvents = realEvents.filter(e => e.date.startsWith(curMonthStr));
+  else if (currentStatsPeriod === 'year') filteredEvents = realEvents.filter(e => e.date.startsWith(String(curYear)));
+
+  const counts = {};
+  people.forEach(p => counts[p.name] = 0);
+  filteredEvents.forEach(e => {
+    const assigned = new Set([...(e.assignedSingers || []).map(s => s.name), ...(e.managers || [])]);
+    assigned.forEach(name => {
+      const match = people.find(p => p.name.toLowerCase() === name.toLowerCase());
+      if (match) counts[match.name]++;
+    });
+  });
+
+  return people.filter(p => {
+    const cnt = counts[p.name] || 0;
+    return cnt >= minShows && cnt <= maxShows;
+  });
+}
+
+function getOldZeroSingers() {
+  return getBucketSingers(0, 0).filter(p => (p.tagIds || []).includes('tag_old_member'));
+}
+
+function getNewZeroSingers() {
+  return getBucketSingers(0, 0).filter(p => (p.tagIds || []).includes('tag_new_member'));
+}
+
+function getCoverageSingers(tag1, tag2) {
+  return people.filter(p => (p.tagIds || []).includes(tag1) && (p.tagIds || []).includes(tag2));
+}
+
+function openStatsDrilldown(title, subtitle, personList) {
+  document.getElementById('drilldownTitle').textContent = title;
+  document.getElementById('drilldownSub').textContent = subtitle;
+
+  const container = document.getElementById('drilldownList');
+  if (!container) return;
+
+  container.innerHTML = personList.length ? personList.map(p => {
+    const history = getSingerHistory(p.name);
+    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+
+    return `
+      <div class="card compact">
+        <div class="row between">
+          <div class="person">
+            <div class="avatar">${p.name[0]}</div>
+            <div>
+              <div class="title">${p.name}</div>
+              <div class="tagrow" style="margin-top:2px">
+                ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+              </div>
+              <div class="tiny" style="margin-top:2px">Last show: <b>${history.lastShowDate}</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="empty">No singers found for this criteria.</div>';
+
+  document.getElementById('drilldownModal').classList.add('open');
 }
 
 // Event Details & Lineup Modal
@@ -1038,28 +1406,52 @@ function closeModal(id) {
   if (el) el.classList.remove('open');
 }
 
-// Add Singer Modal to Lineup
+// Add Singer Modal to Lineup (With Shared Tag Filtering)
+let assignModalTagIds = [];
 function openAddSingerModal() {
+  assignModalTagIds = [];
+  renderAssignModalList();
+  document.getElementById('assignModal').classList.add('open');
+}
+
+function toggleAssignModalTag(tagId) {
+  if (assignModalTagIds.includes(tagId)) assignModalTagIds = assignModalTagIds.filter(id => id !== tagId);
+  else assignModalTagIds.push(tagId);
+  renderAssignModalList();
+}
+
+function clearAssignModalTags() {
+  assignModalTagIds = [];
+  renderAssignModalList();
+}
+
+function renderAssignModalList() {
   const assignedNames = (tempAssignedSingers || []).map(s => s.name);
-  const candidates = people.filter(p => !assignedNames.includes(p.name));
+  const unassigned = people.filter(p => !assignedNames.includes(p.name));
+  const filtered = filterPeopleByTags(unassigned, assignModalTagIds);
 
   const listEl = document.getElementById('assignList');
   if (!listEl) return;
 
-  listEl.innerHTML = candidates.map(p => `
-    <div class="card compact replacement">
-      <div class="person">
-        <div class="avatar">${p.name[0]}</div>
-        <div>
-          <div class="title">${p.name}</div>
-          <div class="muted">${(p.langs || []).join(' · ')} · ${p.type}</div>
-        </div>
-        <button class="btn soft small" onclick="addSingerToLineup('${p.name}')">+ Add</button>
-      </div>
-    </div>
-  `).join('');
+  renderTagFilterUI('assignFilterBar', assignModalTagIds, 'toggleAssignModalTag', 'clearAssignModalTags');
 
-  document.getElementById('assignModal').classList.add('open');
+  listEl.innerHTML = filtered.length ? filtered.map(p => {
+    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    return `
+      <div class="card compact replacement">
+        <div class="person">
+          <div class="avatar">${p.name[0]}</div>
+          <div>
+            <div class="title">${p.name}</div>
+            <div class="tagrow" style="margin-top:2px">
+              ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+            </div>
+          </div>
+          <button class="btn soft small" onclick="addSingerToLineup('${p.name}')">+ Add</button>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="empty">No matching candidates.</div>';
 }
 
 function addSingerToLineup(name) {
@@ -1075,10 +1467,12 @@ function openAddManagerModal() {
   const currentManagers = tempManagers || [];
   const candidates = people.filter(p => !currentManagers.includes(p.name));
 
-  const listEl = document.getElementById('assignList');
-  if (!listEl) return;
+  const container = document.getElementById('assignList');
+  if (!container) return;
 
-  listEl.innerHTML = candidates.map(p => `
+  document.getElementById('assignFilterBar').innerHTML = '';
+
+  container.innerHTML = candidates.map(p => `
     <div class="card compact replacement">
       <div class="person">
         <div class="avatar manager-avatar">${p.name[0]}</div>
@@ -1103,15 +1497,36 @@ function addManagerToEvent(name) {
 }
 
 // Find Replacement Modal
+let replaceModalTagIds = [];
 function openFindReplacementModal(targetSingerName) {
   replaceTargetSingerName = targetSingerName;
+  replaceModalTagIds = [];
   const e = events.find(x => x.id === detailEventId);
   if (!e) return;
 
+  document.getElementById('replaceNotice').innerHTML = `Finding candidate replacement for <b>${targetSingerName}</b> for <b>${e.name}</b> (${e.workType || 'Unspecified'}, ${e.language || 'Unspecified'}).`;
+
+  renderReplacementModalList();
+  document.getElementById('replaceModal').classList.add('open');
+}
+
+function toggleReplaceModalTag(tagId) {
+  if (replaceModalTagIds.includes(tagId)) replaceModalTagIds = replaceModalTagIds.filter(id => id !== tagId);
+  else replaceModalTagIds.push(tagId);
+  renderReplacementModalList();
+}
+
+function clearReplaceModalTags() {
+  replaceModalTagIds = [];
+  renderReplacementModalList();
+}
+
+function renderReplacementModalList() {
   const currentAssignedNames = (tempAssignedSingers || []).map(s => s.name);
   const candidates = people.filter(p => !currentAssignedNames.includes(p.name));
+  const filtered = filterPeopleByTags(candidates, replaceModalTagIds);
 
-  candidates.sort((a, b) => {
+  filtered.sort((a, b) => {
     const ha = getSingerHistory(a.name);
     const hb = getSingerHistory(b.name);
     return ha.totalShows - hb.totalShows;
@@ -1120,26 +1535,28 @@ function openFindReplacementModal(targetSingerName) {
   const listEl = document.getElementById('replacementList');
   if (!listEl) return;
 
-  document.getElementById('replaceNotice').innerHTML = `Finding candidate replacement for <b>${targetSingerName}</b> for <b>${e.name}</b> (${e.workType || 'Unspecified'}, ${e.language || 'Unspecified'}).`;
+  renderTagFilterUI('replaceFilterBar', replaceModalTagIds, 'toggleReplaceModalTag', 'clearReplaceModalTags');
 
-  listEl.innerHTML = candidates.map(p => {
+  listEl.innerHTML = filtered.length ? filtered.map(p => {
     const h = getSingerHistory(p.name);
+    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+
     return `
       <div class="card compact replacement">
         <div class="person">
           <div class="avatar">${p.name[0]}</div>
           <div>
             <div class="title">${p.name}</div>
-            <div class="muted">${(p.langs || []).join(' · ')} · ${p.type}</div>
-            <div class="tiny" style="color:var(--brand); font-weight:700">📊 ${h.totalShows} shows · Last: ${h.lastShowDate}</div>
+            <div class="tagrow" style="margin-top:2px">
+              ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+            </div>
+            <div class="tiny" style="color:var(--brand); font-weight:700; margin-top:3px">📊 ${h.totalShows} shows · Last: ${h.lastShowDate}</div>
           </div>
           <button class="btn soft small" onclick="chooseReplacement('${p.name}')">Choose</button>
         </div>
       </div>
     `;
-  }).join('');
-
-  document.getElementById('replaceModal').classList.add('open');
+  }).join('') : '<div class="empty">No matching replacement candidates.</div>';
 }
 
 function chooseReplacement(newSingerName) {
@@ -1161,14 +1578,17 @@ function openSuggestModal() {
 
   const scored = unassigned.map(p => {
     const h = getSingerHistory(p.name);
+    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
     let matchReasons = [];
 
-    if (!e.language || e.language === 'Mixed' || (p.langs || []).includes(e.language)) {
-      if (e.language) matchReasons.push(`Matches ${e.language}`);
+    // Language match via tag or event property
+    if (e.language && (pTags.some(t => t.name === e.language) || e.language === 'Mixed')) {
+      matchReasons.push(`Matches ${e.language}`);
     }
 
-    if (!e.workType || p.type === 'Both' || p.type === e.workType) {
-      if (e.workType) matchReasons.push(`Suitable for ${e.workType}`);
+    // Work type suitability match
+    if (e.workType && pTags.some(t => t.name === e.workType || t.name === 'Both')) {
+      matchReasons.push(`Eligible for ${e.workType}`);
     }
 
     matchReasons.push(`${h.totalShows} recent shows`);
@@ -1177,7 +1597,8 @@ function openSuggestModal() {
     return {
       person: p,
       history: h,
-      reasons: matchReasons
+      reasons: matchReasons,
+      pTags
     };
   });
 
@@ -1192,7 +1613,10 @@ function openSuggestModal() {
         <div class="avatar">${s.person.name[0]}</div>
         <div>
           <div class="title">${s.person.name}</div>
-          <div class="muted">${s.reasons.join(' · ')}</div>
+          <div class="tagrow" style="margin-top:2px">
+            ${s.pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+          </div>
+          <div class="tiny" style="margin-top:2px">${s.reasons.join(' · ')}</div>
         </div>
         <button class="btn soft small" onclick="addSuggestedSinger('${s.person.name}')">+ Assign</button>
       </div>
@@ -1371,35 +1795,80 @@ function deleteEvent(id) {
   }
 }
 
-// Add Singer Modal (Global Roster)
+// Add / Edit Singer Modal (With Flexible Tag Assignment Pills)
+let editPersonId = null;
+let editPersonTagIds = [];
+
 function openNewSinger() {
+  editPersonId = null;
+  editPersonTagIds = ['tag_new_member', 'tag_performance', 'tag_recording'];
   document.getElementById('sName').value = '';
-  document.querySelectorAll('#sLangsGroup .on').forEach(b => b.classList.remove('on'));
+  document.getElementById('sGender').value = 'Female';
+  document.getElementById('singerModalTitle').textContent = 'Add new singer';
+
+  renderSingerModalTags();
   document.getElementById('newSingerModal').classList.add('open');
 }
 
-function saveNewSinger() {
+function openEditSingerModal(id) {
+  const p = people.find(x => x.id === id);
+  if (!p) return;
+
+  editPersonId = id;
+  editPersonTagIds = [...(p.tagIds || [])];
+  document.getElementById('sName').value = p.name;
+  document.getElementById('sGender').value = p.gender || 'Female';
+  document.getElementById('singerModalTitle').textContent = 'Edit singer details';
+
+  renderSingerModalTags();
+  closeModal('detailModal');
+  document.getElementById('newSingerModal').classList.add('open');
+}
+
+function toggleSingerModalTag(tagId) {
+  if (editPersonTagIds.includes(tagId)) editPersonTagIds = editPersonTagIds.filter(id => id !== tagId);
+  else editPersonTagIds.push(tagId);
+  renderSingerModalTags();
+}
+
+function renderSingerModalTags() {
+  const container = document.getElementById('sTagsGroup');
+  if (!container) return;
+
+  const activeTags = tags.filter(t => t.active);
+  container.innerHTML = activeTags.map(t => {
+    const isOn = editPersonTagIds.includes(t.id);
+    const pillCls = getTagGroupPillClass(t.group);
+    return `<button class="pill ${pillCls} ${isOn ? 'on' : ''}" onclick="toggleSingerModalTag('${t.id}')">${t.name}</button>`;
+  }).join('');
+}
+
+function saveSinger() {
   const name = document.getElementById('sName').value.trim();
   const gender = document.getElementById('sGender').value;
-  const type = document.getElementById('sType').value;
-  const langs = Array.from(document.querySelectorAll('#sLangsGroup .on')).map(b => b.textContent);
 
   if (!name) return alert('Singer name is required.');
 
-  if (people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-    return alert('A singer with this name already exists.');
+  if (editPersonId) {
+    const p = people.find(x => x.id === editPersonId);
+    if (p) {
+      p.name = name;
+      p.gender = gender;
+      p.tagIds = [...editPersonTagIds];
+    }
+  } else {
+    if (people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      return alert('A singer with this name already exists.');
+    }
+    people.push({
+      id: 'p_' + Date.now(),
+      name,
+      gender,
+      tagIds: [...editPersonTagIds],
+      active: true
+    });
   }
 
-  const newPerson = {
-    id: 'p_' + Date.now(),
-    name,
-    gender,
-    langs,
-    type,
-    active: true
-  };
-
-  people.push(newPerson);
   setStorage('choirProtoPeople', people);
   closeModal('newSingerModal');
   renderSingers();
@@ -1413,72 +1882,75 @@ function deleteGlobalSinger(name) {
   }
 }
 
-// Add / Edit Look Modal
-let editLookId = null;
-function openNewLook() {
-  editLookId = null;
-  document.getElementById('lName').value = '';
-  document.getElementById('lColors').value = '';
-  document.getElementById('lWomen').value = '';
-  document.getElementById('lMen').value = '';
-  document.getElementById('lNotes').value = '';
-  document.getElementById('newLookModal').classList.add('open');
+// Tag Manager Modal Logic
+function openTagManager() {
+  renderTagManagerList();
+  document.getElementById('tagModal').classList.add('open');
 }
 
-function openEditLook(id) {
-  const l = looks.find(x => x.id === id);
-  if (!l) return;
-  editLookId = id;
+function renderTagManagerList() {
+  const container = document.getElementById('tagManagerList');
+  if (!container) return;
 
-  document.getElementById('lName').value = l.name;
-  document.getElementById('lColors').value = l.colorNotes;
-  document.getElementById('lWomen').value = l.womenNotes;
-  document.getElementById('lMen').value = l.menNotes;
-  document.getElementById('lNotes').value = l.generalNotes || '';
-
-  document.getElementById('newLookModal').classList.add('open');
+  container.innerHTML = tags.map(t => `
+    <div class="card compact">
+      <div class="row between">
+        <div>
+          <b>${t.name}</b> <span class="pill ${getTagGroupPillClass(t.group)}" style="margin-left:4px">${t.group}</span>
+        </div>
+        <div class="row" style="gap:6px">
+          <button class="btn ghost small" onclick="promptRenameTag('${t.id}')">Rename</button>
+          <button class="btn ${t.active ? 'soft' : 'danger'} small" onclick="toggleTagActive('${t.id}')">${t.active ? 'Active' : 'Disabled'}</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
 
-function saveLook() {
-  const name = document.getElementById('lName').value.trim();
-  const colorNotes = document.getElementById('lColors').value.trim();
-  const womenNotes = document.getElementById('lWomen').value.trim();
-  const menNotes = document.getElementById('lMen').value.trim();
-  const generalNotes = document.getElementById('lNotes').value.trim();
+function createCustomTag() {
+  const nameInput = document.getElementById('newTagName');
+  const groupInput = document.getElementById('newTagGroup');
 
-  if (!name) return alert('Look name is required.');
+  const name = (nameInput?.value || '').trim();
+  const group = groupInput?.value || 'custom';
 
-  if (editLookId) {
-    const l = looks.find(x => x.id === editLookId);
-    if (l) {
-      l.name = name;
-      l.colorNotes = colorNotes;
-      l.womenNotes = womenNotes;
-      l.menNotes = menNotes;
-      l.generalNotes = generalNotes;
-    }
-  } else {
-    looks.push({
-      id: 'look_' + Date.now(),
-      name,
-      bgGradient: 'linear-gradient(135deg, #24372b, #485460)',
-      colorNotes,
-      womenNotes,
-      menNotes,
-      generalNotes
-    });
+  if (!name) return alert('Tag name is required.');
+
+  const newTag = {
+    id: 'tag_custom_' + Date.now(),
+    name,
+    group,
+    active: true
+  };
+
+  tags.push(newTag);
+  setStorage('choirProtoTags', tags);
+
+  if (nameInput) nameInput.value = '';
+  renderTagManagerList();
+  renderSingers();
+}
+
+function promptRenameTag(tagId) {
+  const t = tags.find(x => x.id === tagId);
+  if (!t) return;
+
+  const newName = prompt('Enter new name for tag:', t.name);
+  if (newName && newName.trim()) {
+    t.name = newName.trim();
+    setStorage('choirProtoTags', tags);
+    renderTagManagerList();
+    renderSingers();
   }
-
-  setStorage('choirProtoLooks', looks);
-  closeModal('newLookModal');
-  renderLooks();
 }
 
-function deleteLook(id) {
-  if (confirm('Delete this look?')) {
-    looks = looks.filter(l => l.id !== id);
-    setStorage('choirProtoLooks', looks);
-    renderLooks();
+function toggleTagActive(tagId) {
+  const t = tags.find(x => x.id === tagId);
+  if (t) {
+    t.active = !t.active;
+    setStorage('choirProtoTags', tags);
+    renderTagManagerList();
+    renderSingers();
   }
 }
 
@@ -1488,17 +1960,20 @@ function openSettings() {
 }
 
 function resetApp() {
-  if (confirm('This will reset ALL data to original client seed data. Are you sure?')) {
+  if (confirm('This will reset ALL data to v1.5 seed data. Are you sure?')) {
     localStorage.removeItem('choirProtoVersion');
+    localStorage.removeItem('choirProtoTags');
     localStorage.removeItem('choirProtoPeople');
     localStorage.removeItem('choirProtoEvents');
     localStorage.removeItem('choirProtoLooks');
 
+    tags = JSON.parse(JSON.stringify(defaultTags));
     people = JSON.parse(JSON.stringify(initialPeople));
     events = JSON.parse(JSON.stringify(initialEvents));
     looks = JSON.parse(JSON.stringify(initialLooks));
 
     setStorage('choirProtoVersion', CURRENT_VERSION);
+    setStorage('choirProtoTags', tags);
     setStorage('choirProtoPeople', people);
     setStorage('choirProtoEvents', events);
     setStorage('choirProtoLooks', looks);
