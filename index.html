@@ -199,7 +199,7 @@
   </div>
 </div>
 
-<div id="detailModal" class="modalwrap" onclick="if(event.target===this)closeModal('detailModal')">
+<div id="detailModal" class="modalwrap" onclick="if(event.target===this)closeModalSafe('detailModal')">
   <div class="modal" id="detailBody"></div>
 </div>
 
@@ -355,11 +355,15 @@ function saveEvent(){
  closeModal('newModal'); render();
  if(!editEventId) go('home'); else openDetail(editEventId);
 }
-function openDetail(id){
- const e=events.find(x=>x.id===id), d=dateParts(e.date);
- const assigned=e.assigned||[];
+let detailEventId = null;
+let tempAssigned = null;
+
+function renderDetail(){
+ const e=events.find(x=>x.id===detailEventId), d=dateParts(e.date);
+ const assigned = tempAssigned;
+ const isChanged = JSON.stringify(e.assigned||[]) !== JSON.stringify(tempAssigned);
  document.getElementById('detailBody').innerHTML=`<div class="handle"></div>
- <div class="row between"><div><div class="eyebrow">${e.status==='confirmed'?'Confirmed show':'Enquiry'}</div><h2>${e.category} · ${d.full}</h2></div><button class="btn ghost small" onclick="closeModal('detailModal')">Close</button></div>
+ <div class="row between"><div><div class="eyebrow">${e.status==='confirmed'?'Confirmed show':'Enquiry'}</div><h2>${e.category} · ${d.full}</h2></div><button class="btn ghost small" onclick="closeModalSafe('detailModal')">Close</button></div>
  <div class="row" style="margin-top:12px; gap:8px;">
    <button class="btn soft small full" onclick="openEditEvent(${e.id})">Edit</button>
    <button class="btn danger small full" onclick="deleteEvent(${e.id})">Delete</button>
@@ -376,41 +380,59 @@ function openDetail(id){
  ${e.status==='enquiry'?`<button class="btn primary full" onclick="confirmEvent(${e.id})">Convert enquiry to confirmed show</button>`:
  `<div class="section row between"><h2>Singers</h2><span class="meta">${assigned.length}/${e.singers} assigned</span></div>
  <div class="card compact" style="padding:0">
-  ${assigned.length?assigned.map((n, i)=>`<div class="row between" style="padding:12px; border-bottom:${i<assigned.length-1?'1px solid var(--line)':'none'}"><span style="font-weight:600">${n}</span><button class="btn danger small" onclick="removeSinger(${e.id}, '${n}')" style="padding:6px 10px; border-radius:8px">Remove</button></div>`).join(''):'<div class="empty">No singers assigned yet.</div>'}
+  ${assigned.length?assigned.map((n, i)=>`<div class="row between" style="padding:12px; border-bottom:${i<assigned.length-1?'1px solid var(--line)':'none'}"><span style="font-weight:600">${n}</span><button class="btn danger small" onclick="removeSinger('${n}')" style="padding:6px 10px; border-radius:8px">Remove</button></div>`).join(''):'<div class="empty">No singers assigned yet.</div>'}
  </div>
- <div class="row" style="margin-top:12px">
-   <button class="btn ghost full" style="flex:1" onclick="suggestLineup(${e.id})">Suggest lineup</button>
-   <button class="btn primary full" style="flex:1" onclick="openAssign(${e.id})">＋ Add Singer</button>
+ <div class="row" style="margin-top:12px; gap:8px;">
+   ${isChanged ? `<button class="btn soft full" style="flex:1" onclick="openAssign()">＋ Add Singer</button>
+                  <button class="btn primary full" style="flex:1" onclick="saveAssignedSingers()">Save Changes</button>` : 
+                 `<button class="btn primary full" style="flex:1" onclick="openAssign()">＋ Add Singer</button>`}
  </div>`}
  `;
+}
+
+function openDetail(id){
+ detailEventId = id;
+ const e=events.find(x=>x.id===id);
+ tempAssigned = [...(e.assigned||[])];
+ renderDetail();
  document.getElementById('detailModal').classList.add('open');
 }
 function confirmEvent(id){const e=events.find(x=>x.id===id);e.status='confirmed';localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id)}
-function suggestLineup(id){
- const e=events.find(x=>x.id===id);
- let candidates=singers.filter(s=>s.type==='Both'||s.type===e.type);
- if(e.language!=='Mixed') candidates=candidates.filter(s=>s.langs.includes(e.language));
- e.assigned=candidates.slice(0,e.singers).map(s=>s.name);
- localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);
+function removeSinger(name){
+ tempAssigned = tempAssigned.filter(n=>n!==name);
+ renderDetail();
 }
-function removeSinger(id, name){
- const e=events.find(x=>x.id===id);
- e.assigned=e.assigned.filter(n=>n!==name);
- localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);
-}
-function openAssign(id){
- const e=events.find(x=>x.id===id);
- const unassigned=singers.filter(s=>!(e.assigned||[]).includes(s.name));
+function openAssign(){
+ const e=events.find(x=>x.id===detailEventId);
+ const unassigned=singers.filter(s=>!(tempAssigned||[]).includes(s.name));
  document.getElementById('assignList').innerHTML=unassigned.map(s=>`<div class="card compact replacement"><div class="person">
  <div class="avatar">${s.name[0]}</div><div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div></div>
- <button class="btn soft small" onclick="assignSinger(${id}, '${s.name}')">Add</button></div></div>`).join('');
+ <button class="btn soft small" onclick="assignSinger('${s.name}')">Add</button></div></div>`).join('');
  document.getElementById('assignModal').classList.add('open');
 }
-function assignSinger(id, name){
- const e=events.find(x=>x.id===id);
- if(!e.assigned) e.assigned=[];
- if(!e.assigned.includes(name)) e.assigned.push(name);
- localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);closeModal('assignModal');
+function assignSinger(name){
+ if(!tempAssigned.includes(name)) tempAssigned.push(name);
+ renderDetail(); closeModal('assignModal');
+}
+function saveAssignedSingers(){
+ const e=events.find(x=>x.id===detailEventId);
+ e.assigned = [...tempAssigned];
+ localStorage.setItem('choirProtoEvents',JSON.stringify(events));
+ render(); renderDetail();
+}
+function hasUnsavedChanges() {
+ if (!detailEventId) return false;
+ const e=events.find(x=>x.id===detailEventId);
+ return JSON.stringify(e.assigned||[]) !== JSON.stringify(tempAssigned);
+}
+function closeModalSafe(id) {
+ if (id === 'detailModal' && hasUnsavedChanges()) {
+   if(confirm('You have unsaved changes to the singer lineup. Close without saving?')) {
+     closeModal(id);
+   }
+ } else {
+   closeModal(id);
+ }
 }
 function openReplacement(){
  const cand=singers.filter(s=>s.available&&(s.type==='Both'||s.type==='Live')&&(s.langs.includes('Tamil')||s.langs.includes('English')));
@@ -422,6 +444,9 @@ function openReplacement(){
 function chooseReplacement(name){alert(name+' assigned as replacement ✓');closeModal('replaceModal')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function openEditEvent(id) {
+ if(hasUnsavedChanges()) {
+   if(!confirm('You have unsaved singer changes. Discard them to edit the event?')) return;
+ }
  const e=events.find(x=>x.id===id);
  editEventId = id; newStatus = e.status; pickedType = e.type;
  document.getElementById('newEyebrow').textContent='Edit '+newStatus;
