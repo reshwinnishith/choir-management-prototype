@@ -38,6 +38,8 @@
   .pill.confirmed{background:#e3f1e8;color:#225c37}
   .pill.live{background:#ebe7f7;color:#5c4f8b}
   .pill.recording{background:#e7eff9;color:#3e6389}
+  button.pill{border:1px solid transparent;cursor:pointer;color:var(--muted);transition:0.2s}
+  button.pill.on{background:var(--brand);color:#fff}
   .btn{border:0;border-radius:14px;padding:12px 14px;font-weight:800}
   .btn.primary{background:var(--brand);color:#fff}
   .btn.soft{background:var(--brand2);color:var(--brand)}
@@ -238,10 +240,15 @@
       <select id="sType"><option>Both</option><option>Live</option><option>Recording</option></select></div>
     </div>
     
-    <label>Languages (comma separated)</label>
-    <input id="sLangs" placeholder="e.g. Tamil, English">
+    <label>Languages</label>
+    <div class="tagrow" id="sLangsGroup">
+      <button class="pill" onclick="this.classList.toggle('on')">Tamil</button>
+      <button class="pill" onclick="this.classList.toggle('on')">English</button>
+      <button class="pill" onclick="this.classList.toggle('on')">Hindi</button>
+      <button class="pill" onclick="this.classList.toggle('on')">Malayalam</button>
+    </div>
     
-    <button class="btn primary full" style="margin-top:14px" onclick="saveNewSinger()">Save Singer</button>
+    <button class="btn primary full" style="margin-top:24px" onclick="saveNewSinger()">Save Singer</button>
   </div>
 </div>
 
@@ -396,14 +403,14 @@ function saveNewSinger(){
  const name = document.getElementById('sName').value;
  const gender = document.getElementById('sGender').value;
  const type = document.getElementById('sType').value;
- const langs = document.getElementById('sLangs').value.split(',').map(s=>s.trim()).filter(Boolean);
+ const langs = Array.from(document.querySelectorAll('#sLangsGroup .on')).map(b=>b.textContent);
  if(!name) return alert('Name required');
  singers.push({name, gender, type, langs, available:true, last:'New'});
  localStorage.setItem('choirProtoSingers', JSON.stringify(singers));
  closeModal('newSingerModal');
  renderSingers();
  document.getElementById('sName').value = '';
- document.getElementById('sLangs').value = '';
+ document.querySelectorAll('#sLangsGroup .on').forEach(b=>b.classList.remove('on'));
 }
 render();
 </script>
