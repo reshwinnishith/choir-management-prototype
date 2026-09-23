@@ -88,32 +88,55 @@ function go(id) {
 // Event Card Generator for Home & Calendar
 function eventCard(e) {
   const d = dateParts(e.date);
-  const look = looks.find(l => l.id === e.lookId);
-  const venueObj = getVenueById(e.venueId);
-  const venueName = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
-  const evtTypeObj = getEventTypeById(e.eventTypeId);
-  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : (e.workType || '');
+  const clientObj = e.clientId ? clientService.getById(e.clientId) : null;
+  const venueObj = e.venueId ? venueService.getById(e.venueId) : null;
+  const evtTypeObj = e.eventTypeId ? eventTypeService.getById(e.eventTypeId) : null;
 
+  let primaryTitle = '';
+  let secondaryTitle = '';
+
+  if (clientObj && clientObj.name) {
+    primaryTitle = clientObj.name;
+    secondaryTitle = e.name && e.name !== 'Untitled Show' ? e.name : '';
+  } else {
+    primaryTitle = e.name || 'Untitled Event';
+    secondaryTitle = '';
+  }
+
+  let locationText = '';
+  if (venueObj) {
+    const locParts = [venueObj.name];
+    if (venueObj.city) locParts.push(venueObj.city);
+    locationText = locParts.join(' · ');
+  } else if (e.venue) {
+    locationText = e.venue;
+  } else if (e.city) {
+    locationText = `Venue TBC · ${e.city}`;
+  } else {
+    locationText = 'Venue TBC';
+  }
+
+  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : '';
   const availConfirmed = (e.assignedSingers || []).filter(s => s.status === 'Available').length;
   const unavailableCount = (e.assignedSingers || []).filter(s => s.status === 'Unavailable').length;
   const moneyText = money(e.budget);
 
   return `
-    <div class="card compact" onclick="openDetail(${e.id})">
+    <div class="card compact clickable" onclick="openDetail(${e.id})">
       <div class="event-line">
         <div class="datebox"><span>${d.mon}</span><b>${d.day}</b></div>
         <div>
-          <div class="title">${e.name} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</div>
-          <div class="muted">${venueName} ${e.category ? '· ' + e.category : ''}</div>
-          <div class="tagrow">
+          <div class="client-primary-title">${primaryTitle} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</div>
+          ${secondaryTitle ? `<div class="event-secondary-title">${secondaryTitle}</div>` : ''}
+          <div class="location-sub-line">${locationText}</div>
+          <div class="tagrow" style="margin-top:4px">
             <span class="pill ${e.status}">${e.status === 'confirmed' ? 'Confirmed' : 'Enquiry'}</span>
             ${evtTypeName ? `<span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span>` : ''}
             <span class="pill">${availConfirmed}/${e.singersCount} singers</span>
             ${unavailableCount > 0 ? `<span class="pill avail-unavailable">⚠️ ${unavailableCount} unavailable</span>` : ''}
-            ${look ? `<span class="pill" style="background:#f1ece1">🎨 ${look.name}</span>` : ''}
           </div>
         </div>
-        <div class="money">${moneyText}</div>
+        <div class="money">${moneyText !== '—' ? moneyText : ''}</div>
       </div>
     </div>
   `;
@@ -623,16 +646,30 @@ function renderDetailModal() {
   if (!e) return;
 
   const d = dateParts(e.date);
-  const look = looks.find(l => l.id === e.lookId);
+  const clientObj = e.clientId ? clientService.getById(e.clientId) : null;
+  const venueObj = e.venueId ? venueService.getById(e.venueId) : null;
+  const evtTypeObj = e.eventTypeId ? eventTypeService.getById(e.eventTypeId) : null;
 
-  const venueObj = getVenueById(e.venueId);
-  const venueName = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
+  let primaryTitle = '';
+  let secondaryTitle = '';
 
-  const clientObj = getClientById(e.clientId);
-  const clientName = clientObj ? clientObj.name : (e.client || '—');
+  if (clientObj && clientObj.name) {
+    primaryTitle = clientObj.name;
+    secondaryTitle = e.name && e.name !== 'Untitled Show' ? e.name : '';
+  } else {
+    primaryTitle = e.name || 'Untitled Event';
+    secondaryTitle = '';
+  }
 
-  const evtTypeObj = getEventTypeById(e.eventTypeId);
-  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : (e.workType || '—');
+  let venueNameLine = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
+  let cityStateLine = '';
+  if (venueObj && venueObj.city) {
+    cityStateLine = venueObj.state ? `${venueObj.city} · ${venueObj.state}` : venueObj.city;
+  } else if (e.city) {
+    cityStateLine = e.state ? `${e.city} · ${e.state}` : e.city;
+  }
+
+  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : '';
 
   const assigned = tempAssignedSingers || [];
   const managers = tempManagers || [];
@@ -652,122 +689,117 @@ function renderDetailModal() {
     <div class="handle"></div>
     <div class="row between">
       <div>
-        <div class="eyebrow">${e.status === 'confirmed' ? 'Confirmed Show' : 'Enquiry'}</div>
-        <h2>${e.name} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</h2>
-        <div class="sub">${d.full} · ${venueName}</div>
+        <span class="pill ${e.status}" style="margin-bottom:6px">${e.status === 'confirmed' ? 'Confirmed Show' : 'Enquiry'}</span>
+        <h2 class="client-primary-title" style="font-size:22px; margin-top:4px">${primaryTitle} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</h2>
+        ${secondaryTitle ? `<div class="event-secondary-title" style="font-size:15px">${secondaryTitle}</div>` : ''}
+        <div class="sub" style="margin-top:6px; font-weight:600; color:var(--ink)">📅 ${d.full} ${e.time ? '· ' + e.time : ''}</div>
+        <div class="sub" style="margin-top:2px">📍 ${venueNameLine}</div>
+        ${cityStateLine ? `<div class="tiny" style="color:var(--muted); margin-left:18px">${cityStateLine}</div>` : ''}
+        ${evtTypeName ? `<div style="margin-top:8px"><span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span></div>` : ''}
       </div>
       <button class="btn ghost small" onclick="closeModalSafe('detailModal')">Close</button>
     </div>
 
-    <div class="row" style="margin-top:12px; gap:8px;">
+    <div class="row" style="margin-top:14px; gap:8px;">
       <button class="btn soft small full" onclick="openEditEvent(${e.id})">Edit Event</button>
       <button class="btn danger small full" onclick="deleteEvent(${e.id})">Delete Event</button>
     </div>
 
-    <div class="card compact" style="margin-top:14px">
-      <div class="row between"><span class="muted">Category</span><b>${e.category || '—'}</b></div>
-      <div class="row between" style="margin-top:6px">
-        <span class="muted">Event Type</span>
-        <b>${evtTypeName !== '—' ? `<span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span>` : '—'}</b>
+    ${(e.budget || e.language || e.notes) ? `
+      <div class="card compact" style="margin-top:14px">
+        ${e.budget ? `<div class="row between"><span class="muted">Budget</span><b>${money(e.budget)}</b></div>` : ''}
+        <div class="row between" style="margin-top:4px"><span class="muted">Singers Needed</span><b>${e.singersCount} singers</b></div>
+        ${e.language ? `<div class="row between" style="margin-top:4px"><span class="muted">Language</span><b>${e.language}</b></div>` : ''}
+        ${e.notes ? `<div style="margin-top:8px; font-size:13px" class="notice"><b>Notes:</b> ${e.notes}</div>` : ''}
       </div>
-      <div class="row between" style="margin-top:6px"><span class="muted">Client</span><b>${clientName}</b></div>
-      <div class="row between" style="margin-top:6px"><span class="muted">Show Time</span><b>${e.time || '—'}</b></div>
-      <div class="row between" style="margin-top:6px"><span class="muted">Budget</span><b>${money(e.budget)}</b></div>
-      <div class="row between" style="margin-top:6px"><span class="muted">Singers Needed</span><b>${e.singersCount} singers</b></div>
-      <div class="tagrow">
-        ${e.language ? `<span class="pill">${e.language}</span>` : ''}
-        ${look ? `<span class="pill" style="background:#f1ece1">🎨 ${look.name}</span>` : ''}
-      </div>
-    </div>
-
-    ${e.notes ? `<div class="notice"><b>Notes:</b> ${e.notes}</div>` : ''}
+    ` : ''}
 
     ${e.status === 'enquiry' ? `
       <button class="btn primary full" style="margin-top:14px" onclick="confirmEvent(${e.id})">Convert Enquiry to Confirmed Show</button>
-    ` : `
-      <!-- Lineup Section -->
-      <div class="section row between">
-        <h2>Managers</h2>
-        <button class="btn soft small" onclick="openAddManagerModal()">+ Add Manager</button>
+    ` : ''}
+
+    <!-- Lineup Section -->
+    <div class="section row between" style="margin-top:18px">
+      <h2>Managers</h2>
+      <button class="btn soft small" onclick="openAddManagerModal()">+ Add Manager</button>
+    </div>
+    <div class="card compact">
+      ${managers.length ? managers.map(mId => {
+        const mPerson = peopleService.getById(mId);
+        const mName = mPerson ? mPerson.name : 'Unknown';
+        return `
+          <div class="row between" style="padding:6px 0">
+            <div class="person">
+              <div class="avatar manager-avatar">${mName[0]}</div>
+              <div><b>${mName}</b> <span class="tiny">(Manager)</span></div>
+            </div>
+            <button class="btn danger small" onclick="removeManager('${mId}')">Remove</button>
+          </div>
+        `;
+      }).join('') : '<div class="empty" style="padding:10px">No managers assigned.</div>'}
+    </div>
+
+    <!-- Singers Lineup Section -->
+    <div class="section row between">
+      <h2>Singers Lineup</h2>
+      <span class="meta" onclick="openSuggestModal()">💡 Suggest Singers</span>
+    </div>
+
+    <div class="card compact">
+      <div class="row between">
+        <b>Lineup Progress</b>
+        <span><b>${availConfirmed}</b> / ${e.singersCount} Confirmed</span>
       </div>
-      <div class="card compact">
-        ${managers.length ? managers.map(mId => {
-          const mPerson = getPersonById(mId);
-          const mName = mPerson ? mPerson.name : 'Unknown';
-          return `
-            <div class="row between" style="padding:6px 0">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:${progressPercent}%"></div>
+      </div>
+      <div class="tagrow" style="margin-top:6px">
+        <span class="pill avail-available">${availConfirmed} Available</span>
+        <span class="pill avail-asked">${askedCount} Asked</span>
+        <span class="pill avail-notasked">${notAskedCount} Not asked</span>
+        ${unavailCount > 0 ? `<span class="pill avail-unavailable">${unavailCount} Unavailable</span>` : ''}
+        ${neededCount > 0 ? `<span class="pill" style="background:#ffe8e8; color:#a32a2a">⚠️ ${neededCount} needed</span>` : ''}
+      </div>
+    </div>
+
+    <div class="card compact" style="padding:0">
+      ${assigned.length ? assigned.map(s => {
+        const pObj = peopleService.getById(s.personId);
+        const sName = pObj ? pObj.name : 'Unknown';
+        return `
+          <div style="padding:12px; border-bottom:1px solid var(--line)">
+            <div class="row between">
               <div class="person">
-                <div class="avatar manager-avatar">${mName[0]}</div>
-                <div><b>${mName}</b> <span class="tiny">(Manager)</span></div>
-              </div>
-              <button class="btn danger small" onclick="removeManager('${mId}')">Remove</button>
-            </div>
-          `;
-        }).join('') : '<div class="empty" style="padding:10px">No managers assigned.</div>'}
-      </div>
-
-      <!-- Singers Lineup Section -->
-      <div class="section row between">
-        <h2>Singers Lineup</h2>
-        <span class="meta" onclick="openSuggestModal()">💡 Suggest Singers</span>
-      </div>
-
-      <div class="card compact">
-        <div class="row between">
-          <b>Lineup Progress</b>
-          <span><b>${availConfirmed}</b> / ${e.singersCount} Confirmed</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width:${progressPercent}%"></div>
-        </div>
-        <div class="tagrow" style="margin-top:6px">
-          <span class="pill avail-available">${availConfirmed} Available</span>
-          <span class="pill avail-asked">${askedCount} Asked</span>
-          <span class="pill avail-notasked">${notAskedCount} Not asked</span>
-          ${unavailCount > 0 ? `<span class="pill avail-unavailable">${unavailCount} Unavailable</span>` : ''}
-          ${neededCount > 0 ? `<span class="pill" style="background:#ffe8e8; color:#a32a2a">⚠️ ${neededCount} needed</span>` : ''}
-        </div>
-      </div>
-
-      <div class="card compact" style="padding:0">
-        ${assigned.length ? assigned.map(s => {
-          const pObj = getPersonById(s.personId);
-          const sName = pObj ? pObj.name : 'Unknown';
-          return `
-            <div style="padding:12px; border-bottom:1px solid var(--line)">
-              <div class="row between">
-                <div class="person">
-                  <div class="avatar">${sName[0]}</div>
-                  <div>
-                    <div class="title">${sName}</div>
-                    <div class="tiny">Status:</div>
-                  </div>
-                </div>
-                <div class="row" style="gap:6px">
-                  <select class="avail-select" onchange="changeSingerStatus('${s.personId}', this.value)">
-                    <option value="Not asked" ${s.status === 'Not asked' ? 'selected' : ''}>Not asked</option>
-                    <option value="Asked" ${s.status === 'Asked' ? 'selected' : ''}>Asked</option>
-                    <option value="Available" ${s.status === 'Available' ? 'selected' : ''}>Available</option>
-                    <option value="Unavailable" ${s.status === 'Unavailable' ? 'selected' : ''}>Unavailable</option>
-                  </select>
-                  <button class="btn danger small" onclick="removeSingerFromLineup('${s.personId}')">Remove</button>
+                <div class="avatar">${sName[0]}</div>
+                <div>
+                  <div class="title">${sName}</div>
+                  <div class="tiny">Status:</div>
                 </div>
               </div>
-              ${s.status === 'Unavailable' ? `
-                <div style="margin-top:8px; text-align:right">
-                  <button class="btn warning small" onclick="openFindReplacementModal('${s.personId}')">🔄 Find Replacement for ${sName}</button>
-                </div>
-              ` : ''}
+              <div class="row" style="gap:6px">
+                <select class="avail-select" onchange="changeSingerStatus('${s.personId}', this.value)">
+                  <option value="Not asked" ${s.status === 'Not asked' ? 'selected' : ''}>Not asked</option>
+                  <option value="Asked" ${s.status === 'Asked' ? 'selected' : ''}>Asked</option>
+                  <option value="Available" ${s.status === 'Available' ? 'selected' : ''}>Available</option>
+                  <option value="Unavailable" ${s.status === 'Unavailable' ? 'selected' : ''}>Unavailable</option>
+                </select>
+                <button class="btn danger small" onclick="removeSingerFromLineup('${s.personId}')">Remove</button>
+              </div>
             </div>
-          `;
-        }).join('') : '<div class="empty">No singers assigned to lineup yet.</div>'}
-      </div>
+            ${s.status === 'Unavailable' ? `
+              <div style="margin-top:8px; text-align:right">
+                <button class="btn warning small" onclick="openFindReplacementModal('${s.personId}')">🔄 Find Replacement for ${sName}</button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('') : '<div class="empty">No singers assigned to lineup yet.</div>'}
+    </div>
 
-      <div class="row" style="margin-top:14px; gap:8px;">
-        <button class="btn soft full" style="flex:1" onclick="openAddSingerModal()">+ Add Singer</button>
-        ${isChanged ? `<button class="btn primary full" style="flex:1" onclick="saveLineupChanges()">Save Lineup Changes</button>` : ''}
-      </div>
-    `}
+    <div class="row" style="margin-top:14px; gap:8px;">
+      <button class="btn soft full" style="flex:1" onclick="openAddSingerModal()">+ Add Singer</button>
+      ${isChanged ? `<button class="btn primary full" style="flex:1" onclick="saveLineupChanges()">Save Lineup Changes</button>` : ''}
+    </div>
   `;
 }
 
@@ -1063,29 +1095,136 @@ function addSuggestedSinger(personId) {
   closeModal('suggestModal');
 }
 
-// New / Edit Event Modal
+// ==================================================
+// UNIFIED EVENT FORM & PICKERS ENGINE (v1.6B)
+// ==================================================
+
+let formStatus = 'enquiry';
+let formClientId = null;
+let formEventTypeId = 'event_type_performance';
+let formVenueId = null;
+let formCity = '';
+let formState = '';
+let formSingersCount = 8;
+let formAssignedSingers = [];
+let formManagers = [];
+let cityPickerTarget = 'event';
+
+let editClientId = null;
+let editVenueId = null;
+let editEventTypeId = null;
+let multiSingerSelectedIds = [];
+let multiSingerFilterTagIds = [];
+let managerSelectedIds = [];
+
+function setFormStatus(status) {
+  formStatus = status;
+  const btnEnquiry = document.getElementById('statusBtnEnquiry');
+  const btnConfirmed = document.getElementById('statusBtnConfirmed');
+  if (btnEnquiry && btnConfirmed) {
+    btnEnquiry.classList.toggle('active', status === 'enquiry');
+    btnConfirmed.classList.toggle('active', status === 'confirmed');
+  }
+
+  const saveBtn = document.getElementById('saveEventBtn');
+  if (saveBtn) {
+    saveBtn.textContent = status === 'confirmed' ? 'Save Confirmed Show' : 'Save Enquiry';
+  }
+}
+
+function updateFormDisplay() {
+  // Status
+  setFormStatus(formStatus);
+
+  // Client
+  const clientObj = formClientId ? clientService.getById(formClientId) : null;
+  const clientEl = document.getElementById('formClientDisplay');
+  if (clientEl) {
+    if (clientObj) {
+      clientEl.textContent = clientObj.name;
+      clientEl.classList.remove('placeholder');
+    } else {
+      clientEl.textContent = 'Select client...';
+      clientEl.classList.add('placeholder');
+    }
+  }
+
+  // Event Type
+  const evtTypeObj = formEventTypeId ? eventTypeService.getById(formEventTypeId) : null;
+  const evtTypeEl = document.getElementById('formEventTypeDisplay');
+  if (evtTypeEl) {
+    evtTypeEl.textContent = evtTypeObj ? evtTypeObj.name : 'Unspecified';
+  }
+
+  // Venue
+  const venueObj = formVenueId ? venueService.getById(formVenueId) : null;
+  const venueEl = document.getElementById('formVenueDisplay');
+  if (venueEl) {
+    if (venueObj) {
+      venueEl.textContent = venueObj.name;
+      venueEl.classList.remove('placeholder');
+    } else {
+      venueEl.textContent = 'Venue TBC';
+      venueEl.classList.add('placeholder');
+    }
+  }
+
+  // City & State
+  const cityEl = document.getElementById('formCityDisplay');
+  const stateEl = document.getElementById('formStateDisplay');
+  if (cityEl) {
+    cityEl.textContent = formCity || 'Select city...';
+    cityEl.classList.toggle('placeholder', !formCity);
+  }
+  if (stateEl) {
+    stateEl.value = formState || '';
+  }
+
+  // Singers & Managers summary
+  const singersInput = document.getElementById('fSingers');
+  if (singersInput) singersInput.value = formSingersCount;
+
+  const singerSummary = document.getElementById('formSingerSummary');
+  if (singerSummary) {
+    const selCount = (formAssignedSingers || []).length;
+    singerSummary.textContent = selCount > 0 ? `${selCount} Selected` : 'Add Singers';
+  }
+
+  const managerSummary = document.getElementById('formManagerSummary');
+  if (managerSummary) {
+    const selCount = (formManagers || []).length;
+    managerSummary.textContent = selCount > 0 ? `${selCount} Selected` : 'Add Managers';
+  }
+}
+
+function adjustFormSingers(delta) {
+  formSingersCount = Math.max(1, formSingersCount + delta);
+  updateFormDisplay();
+}
+
 function openNew(status) {
   editEventId = null;
-  newStatus = status;
-  pickedWorkType = 'Unspecified';
+  formStatus = status || 'enquiry';
+  formClientId = null;
+  formEventTypeId = 'event_type_performance';
+  formVenueId = null;
+  formCity = 'Chennai';
+  formState = 'Tamil Nadu';
+  formSingersCount = 8;
+  formAssignedSingers = [];
+  formManagers = [];
 
-  document.getElementById('newEyebrow').textContent = status === 'enquiry' ? 'New Enquiry' : 'New Confirmed Show';
-  document.getElementById('newTitle').textContent = status === 'enquiry' ? 'Save the Enquiry' : 'Add the Show';
+  document.getElementById('newEyebrow').textContent = 'Event Form';
+  document.getElementById('newTitle').textContent = formStatus === 'enquiry' ? 'New Enquiry' : 'New Confirmed Show';
 
   document.getElementById('fName').value = '';
-  document.getElementById('fCategory').value = '';
-  document.getElementById('fClient').value = '';
-  document.getElementById('fVenue').value = '';
-  document.getElementById('fSingers').value = '6';
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fTime').value = '';
   document.getElementById('fBudget').value = '';
-  document.getElementById('fNotes').value = '';
   document.getElementById('fLanguage').value = '';
-  document.getElementById('fCustomWorkType').value = '';
-  document.getElementById('fCustomWorkGroup').style.display = 'none';
+  document.getElementById('fNotes').value = '';
 
-  updateWorkTypeButtons('Unspecified');
-  populateLookSelect('');
-
+  updateFormDisplay();
   document.getElementById('newModal').classList.add('open');
 }
 
@@ -1097,118 +1236,80 @@ function openEditEvent(id) {
   if (!e) return;
 
   editEventId = id;
-  newStatus = e.status;
+  formStatus = e.status;
+  formClientId = e.clientId || null;
+  formEventTypeId = e.eventTypeId || 'event_type_unspecified';
+  formVenueId = e.venueId || null;
+  formCity = e.city || '';
+  formState = e.state || '';
 
-  const evtTypeObj = getEventTypeById(e.eventTypeId);
-  pickedWorkType = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : 'Unspecified';
+  const venueObj = e.venueId ? venueService.getById(e.venueId) : null;
+  if (venueObj && venueObj.city && !formCity) {
+    formCity = venueObj.city;
+    formState = venueObj.state || '';
+  }
 
-  const clientObj = getClientById(e.clientId);
-  const venueObj = getVenueById(e.venueId);
+  formSingersCount = e.singersCount || 8;
+  formAssignedSingers = JSON.parse(JSON.stringify(e.assignedSingers || []));
+  formManagers = JSON.parse(JSON.stringify(e.managers || []));
 
-  document.getElementById('newEyebrow').textContent = 'Edit ' + newStatus;
+  document.getElementById('newEyebrow').textContent = 'Edit Event';
   document.getElementById('newTitle').textContent = 'Edit Event Details';
 
-  document.getElementById('fName').value = e.name || '';
-  document.getElementById('fCategory').value = e.category || '';
+  document.getElementById('fName').value = (e.name && e.name !== 'Untitled Show') ? e.name : '';
   document.getElementById('fDate').value = e.date || '';
   document.getElementById('fTime').value = e.time || '';
-  document.getElementById('fClient').value = clientObj ? clientObj.name : (e.client || '');
-  document.getElementById('fVenue').value = venueObj ? venueObj.name : (e.venue || '');
-  document.getElementById('fSingers').value = e.singersCount || 1;
   document.getElementById('fBudget').value = e.budget ? e.budget : '';
   document.getElementById('fLanguage').value = e.language || '';
   document.getElementById('fNotes').value = e.notes || '';
 
-  const standardTypes = ['Unspecified', 'Performance', 'Recording', 'Rehearsal', 'Shoot', 'Soundcheck'];
-  if (standardTypes.includes(pickedWorkType)) {
-    updateWorkTypeButtons(pickedWorkType);
-    document.getElementById('fCustomWorkGroup').style.display = 'none';
-  } else {
-    updateWorkTypeButtons('Custom');
-    document.getElementById('fCustomWorkGroup').style.display = 'block';
-    document.getElementById('fCustomWorkType').value = pickedWorkType;
-  }
-
-  populateLookSelect(e.lookId || '');
-
+  updateFormDisplay();
   closeModal('detailModal');
   document.getElementById('newModal').classList.add('open');
 }
 
-function pickWorkType(btn) {
-  const type = btn.dataset.type;
-  pickedWorkType = type;
-  updateWorkTypeButtons(type);
-
-  const customGroup = document.getElementById('fCustomWorkGroup');
-  if (type === 'Custom') {
-    customGroup.style.display = 'block';
-  } else {
-    customGroup.style.display = 'none';
-  }
-}
-
-function updateWorkTypeButtons(activeType) {
-  document.querySelectorAll('#workTypeChoice button').forEach(b => {
-    b.classList.toggle('on', b.dataset.type === activeType);
-  });
-}
-
-function populateLookSelect(selectedLookId) {
-  const sel = document.getElementById('fLook');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">None / Custom</option>' +
-    looks.map(l => `<option value="${l.id}" ${l.id === selectedLookId ? 'selected' : ''}>${l.name}</option>`).join('');
-}
-
 function saveEvent() {
-  const name = document.getElementById('fName').value || 'Untitled Show';
-  const category = document.getElementById('fCategory').value;
   const date = document.getElementById('fDate').value;
+  if (!formClientId) {
+    alert('Client is mandatory for creating or editing an event. Please select a Client.');
+    openClientPickerModal();
+    return;
+  }
+
+  if (!date) {
+    alert('Event Date is required.');
+    return;
+  }
+
+  const nameInput = document.getElementById('fName').value.trim();
   const time = document.getElementById('fTime').value;
-  const clientText = document.getElementById('fClient').value;
-  const venueText = document.getElementById('fVenue').value;
-  const singersCount = Number(document.getElementById('fSingers').value || 1);
-  const budget = document.getElementById('fBudget').value ? Number(document.getElementById('fBudget').value) : 0;
+  const budgetVal = document.getElementById('fBudget').value;
+  const budget = budgetVal ? Number(budgetVal) : 0;
   const language = document.getElementById('fLanguage').value;
-  const notes = document.getElementById('fNotes').value;
-  const lookId = document.getElementById('fLook').value;
-
-  // Resolve Client & Venue entities
-  const clientEntity = clientService.getOrCreateByName(clientText);
-  const venueEntity = venueService.getOrCreateByName(venueText);
-
-  // Resolve EventType entity
-  let finalWorkTypeStr = pickedWorkType;
-  if (pickedWorkType === 'Unspecified') finalWorkTypeStr = '';
-  else if (pickedWorkType === 'Custom') finalWorkTypeStr = document.getElementById('fCustomWorkType').value.trim();
-
-  const evtTypeEntity = eventTypeService.getByWorkType(finalWorkTypeStr);
+  const notes = document.getElementById('fNotes').value.trim();
 
   const data = {
-    name,
-    category,
-    eventTypeId: evtTypeEntity ? evtTypeEntity.id : 'event_type_unspecified',
+    name: nameInput || 'Untitled Show',
+    status: formStatus,
+    clientId: formClientId,
+    eventTypeId: formEventTypeId,
     date,
     time,
-    clientId: clientEntity ? clientEntity.id : null,
-    venueId: venueEntity ? venueEntity.id : null,
-    singersCount,
+    venueId: formVenueId,
+    city: formCity,
+    state: formState,
+    singersCount: formSingersCount,
+    assignedSingers: formAssignedSingers,
+    managers: formManagers,
     budget,
     language,
-    notes,
-    lookId
+    notes
   };
 
   if (editEventId) {
     eventService.update(editEventId, data);
   } else {
-    eventService.create({
-      status: newStatus,
-      managers: [],
-      assignedSingers: [],
-      ...data
-    });
+    eventService.create(data);
   }
 
   closeModal('newModal');
@@ -1220,6 +1321,440 @@ function saveEvent() {
     go('home');
   }
 }
+
+// --------------------------------------------------
+// CLIENT PICKER & DATABASE
+// --------------------------------------------------
+
+function openClientPickerModal() {
+  editClientId = null;
+  const searchInput = document.getElementById('clientSearchInput');
+  if (searchInput) searchInput.value = '';
+  toggleNewClientForm(false);
+  renderClientPickerList();
+  document.getElementById('clientPickerModal').classList.add('open');
+}
+
+function renderClientPickerList() {
+  const q = (document.getElementById('clientSearchInput')?.value || '').toLowerCase().trim();
+  const allClients = clientService.getAll();
+  const filtered = allClients.filter(c => {
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q) || (c.contactName && c.contactName.toLowerCase().includes(q));
+  });
+
+  const container = document.getElementById('clientPickerList');
+  if (!container) return;
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty">No matching clients found. Click below to add a new client.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => {
+    const isSelected = formClientId === c.id;
+    return `
+      <div class="multi-select-item ${isSelected ? 'selected' : ''}" onclick="selectClient('${c.id}')">
+        <div>
+          <div class="client-primary-title" style="font-size:15px">${c.name}</div>
+          ${c.contactName ? `<div class="tiny" style="color:var(--muted)">👤 ${c.contactName} ${c.phone ? '· ' + c.phone : ''}</div>` : ''}
+        </div>
+        <div class="row" style="gap:6px">
+          <button type="button" class="btn ghost small" style="padding:3px 8px; font-size:11px" onclick="event.stopPropagation(); editClient('${c.id}')">Edit</button>
+          <div class="check-indicator">${isSelected ? '✓' : ''}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectClient(clientId) {
+  formClientId = clientId;
+  updateFormDisplay();
+  closeModal('clientPickerModal');
+}
+
+function toggleNewClientForm(show) {
+  const container = document.getElementById('newClientFormContainer');
+  const toggleBtn = document.getElementById('btnToggleNewClientForm');
+  if (!container) return;
+
+  const shouldShow = show !== undefined ? show : (container.style.display === 'none');
+  container.style.display = shouldShow ? 'block' : 'none';
+  if (toggleBtn) toggleBtn.style.display = shouldShow ? 'none' : 'block';
+
+  if (shouldShow && !editClientId) {
+    document.getElementById('clientFormHeaderTitle').textContent = 'Add New Client';
+    document.getElementById('ncName').value = '';
+    document.getElementById('ncContact').value = '';
+    document.getElementById('ncPhone').value = '';
+    document.getElementById('ncEmail').value = '';
+    document.getElementById('ncNotes').value = '';
+  }
+}
+
+function editClient(clientId) {
+  const c = clientService.getById(clientId);
+  if (!c) return;
+
+  editClientId = clientId;
+  document.getElementById('clientFormHeaderTitle').textContent = 'Edit Client Details';
+  document.getElementById('ncName').value = c.name || '';
+  document.getElementById('ncContact').value = c.contactName || '';
+  document.getElementById('ncPhone').value = c.phone || '';
+  document.getElementById('ncEmail').value = c.email || '';
+  document.getElementById('ncNotes').value = c.notes || '';
+
+  toggleNewClientForm(true);
+}
+
+function saveNewClient() {
+  const name = document.getElementById('ncName').value.trim();
+  const contactName = document.getElementById('ncContact').value.trim();
+  const phone = document.getElementById('ncPhone').value.trim();
+  const email = document.getElementById('ncEmail').value.trim();
+  const notes = document.getElementById('ncNotes').value.trim();
+
+  if (!name) return alert('Client Name is required.');
+
+  let clientObj;
+  if (editClientId) {
+    clientObj = clientService.update(editClientId, { name, contactName, phone, email, notes });
+  } else {
+    clientObj = clientService.create({ name, contactName, phone, email, notes });
+  }
+
+  selectClient(clientObj.id);
+}
+
+// --------------------------------------------------
+// EVENT TYPE PICKER
+// --------------------------------------------------
+
+function openEventTypePickerModal() {
+  const input = document.getElementById('eventTypeSearchInput');
+  if (input) input.value = '';
+  toggleNewEventTypeForm(false);
+  renderEventTypePickerList();
+  document.getElementById('eventTypePickerModal').classList.add('open');
+}
+
+function renderEventTypePickerList() {
+  const q = (document.getElementById('eventTypeSearchInput')?.value || '').toLowerCase().trim();
+  const allTypes = eventTypeService.getAll().filter(t => t.active);
+  const filtered = allTypes.filter(t => !q || t.name.toLowerCase().includes(q));
+
+  const container = document.getElementById('eventTypeList');
+  if (!container) return;
+
+  container.innerHTML = filtered.map(t => {
+    const isSelected = formEventTypeId === t.id;
+    return `
+      <div class="multi-select-item ${isSelected ? 'selected' : ''}" onclick="selectEventType('${t.id}')">
+        <div style="font-weight:700; font-size:14px">${t.name}</div>
+        <div class="check-indicator">${isSelected ? '✓' : ''}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectEventType(id) {
+  formEventTypeId = id;
+  updateFormDisplay();
+  closeModal('eventTypePickerModal');
+}
+
+function toggleNewEventTypeForm(show) {
+  const container = document.getElementById('newEventTypeContainer');
+  const toggleBtn = document.getElementById('btnToggleNewEventType');
+  if (!container) return;
+  const shouldShow = show !== undefined ? show : (container.style.display === 'none');
+  container.style.display = shouldShow ? 'block' : 'none';
+  if (toggleBtn) toggleBtn.style.display = shouldShow ? 'none' : 'block';
+  if (shouldShow) document.getElementById('netName').value = '';
+}
+
+function saveNewEventType() {
+  const name = document.getElementById('netName').value.trim();
+  if (!name) return alert('Event Type Name is required.');
+
+  const et = eventTypeService.create({ name });
+  selectEventType(et.id);
+}
+
+// --------------------------------------------------
+// VENUE PICKER & INDIA LOCATION
+// --------------------------------------------------
+
+function openVenuePickerModal() {
+  const searchInput = document.getElementById('venueSearchInput');
+  if (searchInput) searchInput.value = '';
+  toggleNewVenueForm(false);
+  renderVenuePickerList();
+  document.getElementById('venuePickerModal').classList.add('open');
+}
+
+function renderVenuePickerList() {
+  const q = (document.getElementById('venueSearchInput')?.value || '').toLowerCase().trim();
+  const allVenues = venueService.getAll();
+  const filtered = allVenues.filter(v => !q || v.name.toLowerCase().includes(q) || (v.city && v.city.toLowerCase().includes(q)));
+
+  const container = document.getElementById('venuePickerList');
+  if (!container) return;
+
+  const isTbcSelected = !formVenueId;
+  let html = `
+    <div class="multi-select-item ${isTbcSelected ? 'selected' : ''}" onclick="selectVenueTbc()">
+      <div>
+        <div class="client-primary-title" style="font-size:14px; color:var(--muted)">Venue TBC</div>
+        <div class="tiny" style="color:var(--muted)">Exact venue not confirmed yet</div>
+      </div>
+      <div class="check-indicator">${isTbcSelected ? '✓' : ''}</div>
+    </div>
+  `;
+
+  html += filtered.map(v => {
+    const isSelected = formVenueId === v.id;
+    return `
+      <div class="multi-select-item ${isSelected ? 'selected' : ''}" onclick="selectVenue('${v.id}')">
+        <div>
+          <div class="client-primary-title" style="font-size:15px">${v.name}</div>
+          <div class="location-sub-line">${v.city ? `${v.city} · ${v.state || ''}` : 'Location unspecified'}</div>
+        </div>
+        <div class="check-indicator">${isSelected ? '✓' : ''}</div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+function selectVenue(id) {
+  formVenueId = id;
+  const v = venueService.getById(id);
+  if (v && v.city) {
+    formCity = v.city;
+    formState = v.state || '';
+  }
+  updateFormDisplay();
+  closeModal('venuePickerModal');
+}
+
+function selectVenueTbc() {
+  formVenueId = null;
+  updateFormDisplay();
+  closeModal('venuePickerModal');
+}
+
+function toggleNewVenueForm(show) {
+  const container = document.getElementById('newVenueFormContainer');
+  const toggleBtn = document.getElementById('btnToggleNewVenueForm');
+  if (!container) return;
+
+  const shouldShow = show !== undefined ? show : (container.style.display === 'none');
+  container.style.display = shouldShow ? 'block' : 'none';
+  if (toggleBtn) toggleBtn.style.display = shouldShow ? 'none' : 'block';
+
+  if (shouldShow) {
+    document.getElementById('nvName').value = '';
+    document.getElementById('nvCityDisplay').textContent = formCity || 'Select city...';
+    document.getElementById('nvCityDisplay').classList.toggle('placeholder', !formCity);
+    document.getElementById('nvStateDisplay').value = formState || '';
+  }
+}
+
+function saveNewVenue() {
+  const name = document.getElementById('nvName').value.trim();
+  const city = (document.getElementById('nvCityDisplay')?.textContent || '').replace('Select city...', '').trim();
+  const state = document.getElementById('nvStateDisplay').value.trim();
+
+  if (!name) return alert('Venue Name is required.');
+  if (!city) return alert('City is required for a venue.');
+
+  const v = venueService.create({ name, city, state });
+  selectVenue(v.id);
+}
+
+// India City Picker
+function openCityPickerModal(target) {
+  cityPickerTarget = target || 'event';
+  const searchInput = document.getElementById('citySearchInput');
+  if (searchInput) searchInput.value = '';
+  renderCityPickerList();
+  document.getElementById('cityPickerModal').classList.add('open');
+}
+
+function renderCityPickerList() {
+  const q = document.getElementById('citySearchInput')?.value || '';
+  const cities = cityService.search(q);
+
+  const container = document.getElementById('cityPickerList');
+  if (!container) return;
+
+  container.innerHTML = cities.map(item => `
+    <div class="multi-select-item" onclick="selectCity('${item.city}', '${item.state}')">
+      <div>
+        <div style="font-weight:700; font-size:14px">${item.city}</div>
+        <div class="tiny" style="color:var(--muted)">${item.state}</div>
+      </div>
+      <span style="color:var(--brand); font-weight:700">Select ❯</span>
+    </div>
+  `).join('');
+}
+
+function selectCity(cityName, stateName) {
+  if (cityPickerTarget === 'venue') {
+    const cityDisp = document.getElementById('nvCityDisplay');
+    const stateDisp = document.getElementById('nvStateDisplay');
+    if (cityDisp) {
+      cityDisp.textContent = cityName;
+      cityDisp.classList.remove('placeholder');
+    }
+    if (stateDisp) stateDisp.value = stateName;
+  } else {
+    formCity = cityName;
+    formState = stateName;
+    updateFormDisplay();
+  }
+  closeModal('cityPickerModal');
+}
+
+// --------------------------------------------------
+// MULTI-SELECT SINGER PICKER FOR EVENT CREATION
+// --------------------------------------------------
+
+function openMultiSingerPickerModal() {
+  multiSingerSelectedIds = (formAssignedSingers || []).map(s => s.personId);
+  multiSingerFilterTagIds = [];
+  const input = document.getElementById('multiSingerSearchInput');
+  if (input) input.value = '';
+  renderMultiSingerPickerList();
+  document.getElementById('multiSingerPickerModal').classList.add('open');
+}
+
+function toggleMultiSingerFilterTag(tagId) {
+  if (multiSingerFilterTagIds.includes(tagId)) {
+    multiSingerFilterTagIds = multiSingerFilterTagIds.filter(id => id !== tagId);
+  } else {
+    multiSingerFilterTagIds.push(tagId);
+  }
+  renderMultiSingerPickerList();
+}
+
+function clearMultiSingerFilterTags() {
+  multiSingerFilterTagIds = [];
+  renderMultiSingerPickerList();
+}
+
+function renderMultiSingerPickerList() {
+  const q = (document.getElementById('multiSingerSearchInput')?.value || '').toLowerCase().trim();
+  const allPeople = peopleService.getAll();
+  const tagFiltered = filterPeopleByTags(allPeople, multiSingerFilterTagIds);
+  const filtered = tagFiltered.filter(p => !q || p.name.toLowerCase().includes(q));
+
+  renderTagFilterUI('multiSingerFilterBar', multiSingerFilterTagIds, 'toggleMultiSingerFilterTag', 'clearMultiSingerFilterTags');
+
+  const container = document.getElementById('multiSingerList');
+  if (!container) return;
+
+  container.innerHTML = filtered.length ? filtered.map(p => {
+    const isSelected = multiSingerSelectedIds.includes(p.id);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
+    return `
+      <div class="multi-select-item ${isSelected ? 'selected' : ''}" onclick="toggleMultiSinger('${p.id}')">
+        <div class="person">
+          <div class="avatar">${p.name[0]}</div>
+          <div>
+            <div class="title">${p.name}</div>
+            <div class="tagrow" style="margin-top:2px">
+              ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="check-indicator">${isSelected ? '✓' : ''}</div>
+      </div>
+    `;
+  }).join('') : `<div class="empty">No matching singers.</div>`;
+
+  const btn = document.getElementById('saveMultiSingersBtn');
+  if (btn) btn.textContent = `Save ${multiSingerSelectedIds.length} Selected Singer${multiSingerSelectedIds.length === 1 ? '' : 's'}`;
+}
+
+function toggleMultiSinger(personId) {
+  if (multiSingerSelectedIds.includes(personId)) {
+    multiSingerSelectedIds = multiSingerSelectedIds.filter(id => id !== personId);
+  } else {
+    multiSingerSelectedIds.push(personId);
+  }
+  renderMultiSingerPickerList();
+}
+
+function saveMultiSingers() {
+  const updatedAssigned = multiSingerSelectedIds.map(pId => {
+    const existing = (formAssignedSingers || []).find(s => s.personId === pId);
+    return existing ? existing : { personId: pId, status: 'Not asked' };
+  });
+
+  formAssignedSingers = updatedAssigned;
+  updateFormDisplay();
+  closeModal('multiSingerPickerModal');
+}
+
+// --------------------------------------------------
+// MANAGER PICKER FOR EVENT CREATION
+// --------------------------------------------------
+
+function openManagerPickerModal() {
+  managerSelectedIds = [...(formManagers || [])];
+  const input = document.getElementById('managerSearchInput');
+  if (input) input.value = '';
+  renderManagerPickerList();
+  document.getElementById('managerPickerModal').classList.add('open');
+}
+
+function renderManagerPickerList() {
+  const q = (document.getElementById('managerSearchInput')?.value || '').toLowerCase().trim();
+  const allPeople = peopleService.getAll();
+  const filtered = allPeople.filter(p => !q || p.name.toLowerCase().includes(q));
+
+  const container = document.getElementById('managerPickerList');
+  if (!container) return;
+
+  container.innerHTML = filtered.length ? filtered.map(p => {
+    const isSelected = managerSelectedIds.includes(p.id);
+    return `
+      <div class="multi-select-item ${isSelected ? 'selected' : ''}" onclick="toggleManager('${p.id}')">
+        <div class="person">
+          <div class="avatar manager-avatar">${p.name[0]}</div>
+          <div>
+            <div class="title">${p.name}</div>
+            <div class="tiny" style="color:var(--muted)">Manager candidate</div>
+          </div>
+        </div>
+        <div class="check-indicator">${isSelected ? '✓' : ''}</div>
+      </div>
+    `;
+  }).join('') : `<div class="empty">No matching managers found.</div>`;
+
+  const btn = document.getElementById('saveManagersBtn');
+  if (btn) btn.textContent = `Save ${managerSelectedIds.length} Selected Manager${managerSelectedIds.length === 1 ? '' : 's'}`;
+}
+
+function toggleManager(personId) {
+  if (managerSelectedIds.includes(personId)) {
+    managerSelectedIds = managerSelectedIds.filter(id => id !== personId);
+  } else {
+    managerSelectedIds.push(personId);
+  }
+  renderManagerPickerList();
+}
+
+function saveManagers() {
+  formManagers = [...managerSelectedIds];
+  updateFormDisplay();
+  closeModal('managerPickerModal');
+}
+
 
 function deleteEvent(id) {
   if (confirm('Are you sure you want to delete this event?')) {
@@ -1379,7 +1914,7 @@ function openSettings() {
 }
 
 function resetApp() {
-  if (confirm('This will reset ALL data to v1.6A seed data. Are you sure?')) {
+  if (confirm('This will reset ALL data to v1.6B seed data. Are you sure?')) {
     storageService.remove('choirProtoSchemaVersion');
     storageService.remove('choirProtoEventTypes');
     storageService.remove('choirProtoTags');
@@ -1389,7 +1924,7 @@ function resetApp() {
     storageService.remove('choirProtoEvents');
     storageService.remove('choirProtoLooks');
 
-    migrateToV16A();
+    migrateToV16B();
 
     closeModal('settingsModal');
     render();

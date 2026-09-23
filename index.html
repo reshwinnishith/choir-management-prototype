@@ -131,74 +131,261 @@
     <div class="handle"></div>
     <div class="row between">
       <div>
-        <div class="eyebrow" id="newEyebrow">New enquiry</div>
-        <h2 id="newTitle">Save event details</h2>
+        <div class="eyebrow" id="newEyebrow">Event Form</div>
+        <h2 id="newTitle">Save Event Details</h2>
       </div>
       <button class="btn ghost small" onclick="closeModal('newModal')">Close</button>
     </div>
 
-    <label>Show / Event Name</label>
-    <input id="fName" placeholder="e.g. Staccato, ELFE ACT, Sardar Audio launch">
-
-    <label>Event Category</label>
-    <select id="fCategory">
-      <option value="">Unspecified</option>
-      <option value="Wedding">Wedding</option>
-      <option value="Corporate">Corporate</option>
-      <option value="Private Event">Private Event</option>
-      <option value="Concert">Concert</option>
-    </select>
-
-    <label>Work Type</label>
-    <div class="choice" id="workTypeChoice">
-      <button class="btn ghost on" data-type="Unspecified" onclick="pickWorkType(this)">Unspecified</button>
-      <button class="btn ghost" data-type="Performance" onclick="pickWorkType(this)">Performance</button>
-      <button class="btn ghost" data-type="Recording" onclick="pickWorkType(this)">Recording</button>
-      <button class="btn ghost" data-type="Rehearsal" onclick="pickWorkType(this)">Rehearsal</button>
-      <button class="btn ghost" data-type="Shoot" onclick="pickWorkType(this)">Shoot</button>
-      <button class="btn ghost" data-type="Soundcheck" onclick="pickWorkType(this)">Soundcheck</button>
-      <button class="btn ghost" data-type="Custom" onclick="pickWorkType(this)">Custom</button>
+    <!-- Status Selector -->
+    <div class="status-toggle">
+      <button type="button" id="statusBtnEnquiry" class="active enquiry" onclick="setFormStatus('enquiry')">🟡 Enquiry</button>
+      <button type="button" id="statusBtnConfirmed" class="confirmed" onclick="setFormStatus('confirmed')">🟢 Confirmed</button>
     </div>
 
-    <div id="fCustomWorkGroup" style="display:none; margin-top:8px">
-      <label>Custom Work Type Name</label>
-      <input id="fCustomWorkType" placeholder="e.g. Workshop, Audition, Broadcast">
+    <!-- Client (Mandatory) -->
+    <label>Client *</label>
+    <div class="picker-field" onclick="openClientPickerModal()">
+      <span id="formClientDisplay" class="picker-val placeholder">Select client...</span>
+      <span class="picker-arrow">❯</span>
     </div>
 
+    <!-- Show / Event Name (Optional) -->
+    <label style="margin-top:10px">Show / Event Name <span class="muted" style="font-weight:400">(Optional)</span></label>
+    <input id="fName" placeholder="e.g. Sardar Audio Launch, Annual Gala">
+
+    <!-- Event Type -->
+    <label>Event Type</label>
+    <div class="picker-field" onclick="openEventTypePickerModal()">
+      <span id="formEventTypeDisplay" class="picker-val">Performance</span>
+      <span class="picker-arrow">❯</span>
+    </div>
+
+    <!-- Date & Time -->
+    <div class="form2" style="margin-top:4px">
+      <div><label>Date *</label><input id="fDate" type="date"></div>
+      <div><label>Show Time</label><input id="fTime" type="time"></div>
+    </div>
+
+    <!-- Venue & Location -->
+    <label>Venue</label>
+    <div class="picker-field" onclick="openVenuePickerModal()">
+      <span id="formVenueDisplay" class="picker-val placeholder">Select venue...</span>
+      <span class="picker-arrow">❯</span>
+    </div>
+
+    <div class="form2" style="margin-top:4px">
+      <div>
+        <label>City</label>
+        <div class="picker-field" onclick="openCityPickerModal('event')">
+          <span id="formCityDisplay" class="picker-val placeholder">Select city...</span>
+          <span class="picker-arrow">❯</span>
+        </div>
+      </div>
+      <div>
+        <label>State</label>
+        <input id="formStateDisplay" readonly placeholder="Auto-derived" style="background:#f4f4ee">
+      </div>
+    </div>
+
+    <!-- Team Section -->
+    <div class="form-section-title">Team & Lineup</div>
     <div class="form2">
-      <div><label>Date</label><input id="fDate" type="date" value="2026-09-30"></div>
-      <div><label>Show time</label><input id="fTime" type="time"></div>
+      <div>
+        <label>Singers Required</label>
+        <div class="counter-stepper">
+          <button type="button" onclick="adjustFormSingers(-1)">-</button>
+          <input id="fSingers" type="number" min="1" value="8" readonly>
+          <button type="button" onclick="adjustFormSingers(1)">+</button>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; justify-content:flex-end">
+        <button type="button" class="btn soft full" style="padding:11px 8px; font-weight:700" onclick="openMultiSingerPickerModal()">
+          ♫ <span id="formSingerSummary">Add Singers</span>
+        </button>
+      </div>
     </div>
 
-    <label>Client Name</label><input id="fClient" placeholder="Optional / Leave blank if unknown">
-    <label>Venue / Place</label><input id="fVenue" placeholder="e.g. Chennai trade centre / Intercontinental">
+    <div style="margin-top:10px">
+      <button type="button" class="btn soft full" style="padding:10px; font-weight:700" onclick="openManagerPickerModal()">
+        👤 <span id="formManagerSummary">Add Managers</span>
+      </button>
+    </div>
 
+    <!-- Additional Details -->
+    <div class="form-section-title">Additional Details</div>
     <div class="form2">
-      <div><label>No. of singers required</label><input id="fSingers" type="number" min="1" value="8"></div>
       <div><label>Budget (₹)</label><input id="fBudget" type="number" min="0" step="1000" placeholder="Optional"></div>
+      <div>
+        <label>Language</label>
+        <select id="fLanguage">
+          <option value="">Unspecified</option>
+          <option value="Tamil">Tamil</option>
+          <option value="English">English</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Malayalam">Malayalam</option>
+          <option value="Mixed">Mixed</option>
+        </select>
+      </div>
     </div>
-
-    <label>Language</label>
-    <select id="fLanguage">
-      <option value="">Unspecified</option>
-      <option value="Tamil">Tamil</option>
-      <option value="English">English</option>
-      <option value="Hindi">Hindi</option>
-      <option value="Malayalam">Malayalam</option>
-      <option value="Mixed">Mixed</option>
-    </select>
-
-    <label>Attach Look / Moodboard</label>
-    <select id="fLook">
-      <option value="">None / Custom</option>
-    </select>
 
     <label>Notes</label>
-    <textarea id="fNotes" placeholder="Client requests, dress code notes, call time details..."></textarea>
+    <textarea id="fNotes" placeholder="Client requests, dress code, call time details..."></textarea>
 
-    <button class="btn primary full" style="margin-top:14px" onclick="saveEvent()">Save Event</button>
+    <!-- Sticky Footer Action -->
+    <div class="sticky-modal-footer">
+      <button id="saveEventBtn" class="btn primary full" onclick="saveEvent()">Save Event</button>
+    </div>
   </div>
 </div>
+
+<!-- MODAL: CLIENT PICKER -->
+<div id="clientPickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('clientPickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Client Database</div>
+        <h2>Select Client</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('clientPickerModal')">Close</button>
+    </div>
+    <input id="clientSearchInput" placeholder="Search clients..." oninput="renderClientPickerList()" style="margin-top:10px">
+    <div id="clientPickerList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
+    <button type="button" id="btnToggleNewClientForm" class="btn soft full" style="margin-top:10px" onclick="toggleNewClientForm()">+ Add New Client</button>
+
+    <div id="newClientFormContainer" style="display:none; margin-top:12px; padding:12px; background:#fff; border:1px solid var(--line); border-radius:16px;">
+      <h3 id="clientFormHeaderTitle" style="margin:0 0 10px; font-size:14px;">Add New Client</h3>
+      <label>Name *</label><input id="ncName" placeholder="e.g. Staccato, Sony Music">
+      <label>Contact Person</label><input id="ncContact" placeholder="e.g. Vikram">
+      <div class="form2">
+        <div><label>Phone</label><input id="ncPhone" placeholder="+91..."></div>
+        <div><label>Email</label><input id="ncEmail" placeholder="client@domain.com"></div>
+      </div>
+      <label>Notes</label><textarea id="ncNotes" placeholder="Client preferences..." style="min-height:50px"></textarea>
+      <div class="row" style="margin-top:10px; gap:8px">
+        <button class="btn primary full" style="flex:1" onclick="saveNewClient()">Save Client</button>
+        <button class="btn ghost small" onclick="toggleNewClientForm(false)">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EVENT TYPE PICKER -->
+<div id="eventTypePickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('eventTypePickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Event Type</div>
+        <h2>Select Event Type</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('eventTypePickerModal')">Close</button>
+    </div>
+    <input id="eventTypeSearchInput" placeholder="Search event types..." oninput="renderEventTypePickerList()" style="margin-top:10px">
+    <div id="eventTypeList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
+    <button type="button" id="btnToggleNewEventType" class="btn soft full" style="margin-top:10px" onclick="toggleNewEventTypeForm()">+ Add Custom Event Type</button>
+
+    <div id="newEventTypeContainer" style="display:none; margin-top:12px; padding:12px; background:#fff; border:1px solid var(--line); border-radius:16px;">
+      <h3 style="margin:0 0 10px; font-size:14px;">Add Custom Event Type</h3>
+      <label>Event Type Name *</label>
+      <input id="netName" placeholder="e.g. Workshop, Audition, Broadcast">
+      <div class="row" style="margin-top:10px; gap:8px">
+        <button class="btn primary full" style="flex:1" onclick="saveNewEventType()">Save Event Type</button>
+        <button class="btn ghost small" onclick="toggleNewEventTypeForm(false)">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: VENUE PICKER -->
+<div id="venuePickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('venuePickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Venue Database</div>
+        <h2>Select Venue</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('venuePickerModal')">Close</button>
+    </div>
+    <input id="venueSearchInput" placeholder="Search venues..." oninput="renderVenuePickerList()" style="margin-top:10px">
+    <div id="venuePickerList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
+    <button type="button" id="btnToggleNewVenueForm" class="btn soft full" style="margin-top:10px" onclick="toggleNewVenueForm()">+ Add New Venue</button>
+
+    <div id="newVenueFormContainer" style="display:none; margin-top:12px; padding:12px; background:#fff; border:1px solid var(--line); border-radius:16px;">
+      <h3 id="venueFormHeaderTitle" style="margin:0 0 10px; font-size:14px;">Add New Venue</h3>
+      <label>Venue Name *</label><input id="nvName" placeholder="e.g. Taj Coromandel">
+      <label>City *</label>
+      <div class="picker-field" onclick="openCityPickerModal('venue')">
+        <span id="nvCityDisplay" class="picker-val placeholder">Select city...</span>
+        <span class="picker-arrow">❯</span>
+      </div>
+      <label>State</label>
+      <input id="nvStateDisplay" readonly placeholder="Auto-derived" style="background:#f4f4ee">
+      <div class="row" style="margin-top:10px; gap:8px">
+        <button class="btn primary full" style="flex:1" onclick="saveNewVenue()">Save & Select Venue</button>
+        <button class="btn ghost small" onclick="toggleNewVenueForm(false)">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CITY PICKER -->
+<div id="cityPickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('cityPickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">India Location</div>
+        <h2>Select City</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('cityPickerModal')">Close</button>
+    </div>
+    <input id="citySearchInput" placeholder="Search Indian city (e.g. Chennai, Bengaluru)..." oninput="renderCityPickerList()" style="margin-top:10px">
+    <div id="cityPickerList" style="margin-top:10px; max-height:60vh; overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL: MULTI-SINGER PICKER -->
+<div id="multiSingerPickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('multiSingerPickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Select Singers</div>
+        <h2>Team Lineup</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('multiSingerPickerModal')">Close</button>
+    </div>
+    <input id="multiSingerSearchInput" placeholder="Search singers..." oninput="renderMultiSingerPickerList()" style="margin-top:10px">
+    <div id="multiSingerFilterBar" style="margin-top:8px"></div>
+    <div id="multiSingerList" style="margin-top:10px; max-height:50vh; overflow-y:auto"></div>
+    <div class="sticky-modal-footer">
+      <button id="saveMultiSingersBtn" class="btn primary full" onclick="saveMultiSingers()">Save Selected Singers</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MANAGER PICKER -->
+<div id="managerPickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('managerPickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Select Managers</div>
+        <h2>Event Managers</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('managerPickerModal')">Close</button>
+    </div>
+    <input id="managerSearchInput" placeholder="Search managers..." oninput="renderManagerPickerList()" style="margin-top:10px">
+    <div id="managerPickerList" style="margin-top:10px; max-height:50vh; overflow-y:auto"></div>
+    <div class="sticky-modal-footer">
+      <button id="saveManagersBtn" class="btn primary full" onclick="saveManagers()">Save Selected Managers</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL: EVENT DETAILS & LINEUP -->
 <div id="detailModal" class="modalwrap" onclick="if(event.target===this)closeModalSafe('detailModal')">
@@ -356,6 +543,7 @@
   </div>
 </div>
 
+<script src="india-cities.js"></script>
 <script src="services.js"></script>
 <script src="app.js"></script>
 </body>

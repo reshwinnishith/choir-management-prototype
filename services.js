@@ -1,6 +1,6 @@
-// Choir Manager - v1.6A Service & Storage Abstraction Layer
+// Choir Manager - v1.6B Service & Storage Abstraction Layer
 
-const SCHEMA_VERSION = '1.6A';
+const SCHEMA_VERSION = '1.6B';
 
 // Storage Engine Abstraction
 const storageService = {
@@ -30,7 +30,67 @@ function generateId(prefix = 'id') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 }
 
-// 1. Default Event Types Entity Definitions
+// 1. Bundled India Cities & States Dataset
+const getCityDataset = () => (typeof INDIA_CITIES_DATASET !== 'undefined') ? INDIA_CITIES_DATASET : [
+  { city: 'Chennai', state: 'Tamil Nadu', aliases: ['Madras'] },
+  { city: 'Coimbatore', state: 'Tamil Nadu', aliases: ['Kovai'] },
+  { city: 'Madurai', state: 'Tamil Nadu' },
+  { city: 'Tiruchirappalli', state: 'Tamil Nadu', aliases: ['Trichy', 'Tiruchi'] },
+  { city: 'Bengaluru', state: 'Karnataka', aliases: ['Bangalore'] },
+  { city: 'Kochi', state: 'Kerala', aliases: ['Cochin', 'Ernakulam'] },
+  { city: 'Mumbai', state: 'Maharashtra', aliases: ['Bombay'] },
+  { city: 'Delhi', state: 'Delhi' }
+];
+
+const cityService = {
+  search(query) {
+    if (!query || !query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    const ds = getCityDataset();
+    
+    const results = [];
+    const seen = new Set();
+
+    ds.forEach(item => {
+      const matchCity = item.city.toLowerCase().includes(q);
+      const matchState = item.state.toLowerCase().includes(q);
+      const matchAlias = item.aliases && item.aliases.some(a => a.toLowerCase().includes(q));
+
+      if (matchCity || matchState || matchAlias) {
+        const key = `${item.city}_${item.state}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({
+            city: item.city,
+            state: item.state
+          });
+        }
+      }
+    });
+
+    return results;
+  },
+
+  getByCityName(cityName) {
+    if (!cityName) return null;
+    const q = cityName.trim().toLowerCase();
+    const ds = getCityDataset();
+
+    const found = ds.find(item => {
+      if (item.city.toLowerCase() === q) return true;
+      if (item.aliases && item.aliases.some(a => a.toLowerCase() === q)) return true;
+      return false;
+    });
+
+    if (found) {
+      return { city: found.city, state: found.state };
+    }
+
+    return null;
+  }
+};
+
+// 2. Default Event Types Definitions
 const defaultEventTypes = [
   { id: 'event_type_unspecified', name: 'Unspecified', active: true },
   { id: 'event_type_performance', name: 'Performance', active: true },
@@ -42,7 +102,7 @@ const defaultEventTypes = [
   { id: 'event_type_cast', name: 'Cast', active: true }
 ];
 
-// 2. Default Tag Entity Definitions
+// 3. Default Tag Definitions
 const defaultTags = [
   { id: 'tag_old_member', name: 'Old Member', group: 'membership', active: true },
   { id: 'tag_new_member', name: 'New Member', group: 'membership', active: true },
@@ -54,7 +114,7 @@ const defaultTags = [
   { id: 'tag_recording', name: 'Recording', group: 'eligibility', active: true }
 ];
 
-// 3. Initial Seed Datasets
+// 4. Initial Seed Datasets
 const initialPeople = [
   // Old Members
   { id: 'p_roe', name: 'Roe', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
@@ -109,37 +169,43 @@ const initialPeople = [
 ];
 
 const initialClients = [
-  { id: 'client_rohan_diya', name: 'Rohan & Diya', active: true },
-  { id: 'client_aster_labs', name: 'Aster Labs', active: true },
-  { id: 'client_city_arts', name: 'City Arts', active: true }
+  { id: 'client_staccato_band', name: 'Staccato Band', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_ashwin_studio', name: 'Ashwin Studio', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_vijay_productions', name: 'Vijay Productions', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_seven_screen_studio', name: 'Seven Screen Studio', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_elfe_band', name: 'ELFE Band', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_rohan_diya', name: 'Rohan & Diya', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_aster_labs', name: 'Aster Labs', contactName: '', phone: '', email: '', notes: '', active: true },
+  { id: 'client_city_arts', name: 'City Arts', contactName: '', phone: '', email: '', notes: '', active: true }
 ];
 
 const initialVenues = [
-  { id: 'venue_intercontinental', name: 'Intercontinental', city: '', state: '', active: true },
-  { id: 'venue_tase', name: 'Tase', city: '', state: '', active: true },
-  { id: 'venue_juhu_beach', name: 'Juhu beach', city: '', state: '', active: true },
-  { id: 'venue_staccato_studio', name: 'Staccato studio - teynampet', city: '', state: '', active: true },
-  { id: 'venue_rec', name: 'REC', city: '', state: '', active: true },
-  { id: 'venue_chennai_trade_centre', name: 'Chennai trade centre', city: '', state: '', active: true },
-  { id: 'venue_hindustan_clg', name: 'Hindustan clg', city: '', state: '', active: true },
-  { id: 'venue_vandalur', name: 'Vandalur', city: '', state: '', active: true },
-  { id: 'venue_vgp', name: 'VGP', city: '', state: '', active: true },
-  { id: 'venue_taj_coromandel', name: 'Taj Coromandel', city: '', state: '', active: true },
-  { id: 'venue_itc_grand_chola', name: 'ITC Grand Chola', city: '', state: '', active: true },
-  { id: 'venue_museum_theatre', name: 'Museum Theatre', city: '', state: '', active: true }
+  { id: 'venue_intercontinental', name: 'Intercontinental', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_tase', name: 'Tase', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_juhu_beach', name: 'Juhu beach', city: 'Mumbai', state: 'Maharashtra', active: true },
+  { id: 'venue_staccato_studio', name: 'Staccato studio - teynampet', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_rec', name: 'REC', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_chennai_trade_centre', name: 'Chennai trade centre', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_hindustan_clg', name: 'Hindustan clg', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_vandalur', name: 'Vandalur', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_vgp', name: 'VGP', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_taj_coromandel', name: 'Taj Coromandel', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_itc_grand_chola', name: 'ITC Grand Chola', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_museum_theatre', name: 'Museum Theatre', city: 'Chennai', state: 'Tamil Nadu', active: true }
 ];
 
-// Initial Seed Events with Stable IDs (v1.6A Schema)
 const initialEvents = [
   {
     id: 1,
-    name: 'Staccato',
+    name: '',
     status: 'confirmed',
     eventTypeId: 'event_type_unspecified',
     date: '2026-08-08',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_intercontinental',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 8,
     budget: 0,
     language: '',
@@ -163,8 +229,10 @@ const initialEvents = [
     eventTypeId: 'event_type_recording',
     date: '2026-08-12',
     time: '',
-    clientId: null,
+    clientId: 'client_ashwin_studio',
     venueId: 'venue_tase',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 11,
     budget: 0,
     language: '',
@@ -191,8 +259,10 @@ const initialEvents = [
     eventTypeId: 'event_type_shoot',
     date: '2026-08-20',
     time: '',
-    clientId: null,
+    clientId: 'client_vijay_productions',
     venueId: 'venue_juhu_beach',
+    city: 'Mumbai',
+    state: 'Maharashtra',
     singersCount: 6,
     budget: 0,
     language: '',
@@ -214,8 +284,10 @@ const initialEvents = [
     eventTypeId: 'event_type_recording',
     date: '2026-08-23',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_staccato_studio',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 17,
     budget: 0,
     language: '',
@@ -248,8 +320,10 @@ const initialEvents = [
     eventTypeId: 'event_type_rehearsal',
     date: '2026-08-26',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_staccato_studio',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 15,
     budget: 0,
     language: '',
@@ -280,8 +354,10 @@ const initialEvents = [
     eventTypeId: 'event_type_rehearsal',
     date: '2026-08-27',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_staccato_studio',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 14,
     budget: 0,
     language: '',
@@ -311,8 +387,10 @@ const initialEvents = [
     eventTypeId: 'event_type_soundcheck',
     date: '2026-08-28',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_rec',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 20,
     budget: 0,
     language: '',
@@ -348,8 +426,10 @@ const initialEvents = [
     eventTypeId: 'event_type_unspecified',
     date: '2026-08-31',
     time: '',
-    clientId: null,
+    clientId: 'client_seven_screen_studio',
     venueId: 'venue_chennai_trade_centre',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 16,
     budget: 0,
     language: '',
@@ -376,13 +456,15 @@ const initialEvents = [
   },
   {
     id: 9,
-    name: 'ELFE ACT (with band)',
+    name: '',
     status: 'confirmed',
     eventTypeId: 'event_type_unspecified',
     date: '2026-09-03',
     time: '',
-    clientId: null,
+    clientId: 'client_elfe_band',
     venueId: 'venue_hindustan_clg',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 10,
     budget: 0,
     language: '',
@@ -408,8 +490,10 @@ const initialEvents = [
     eventTypeId: 'event_type_unspecified',
     date: '2026-09-05',
     time: '',
-    clientId: null,
+    clientId: 'client_staccato_band',
     venueId: 'venue_vandalur',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 6,
     budget: 0,
     language: '',
@@ -426,13 +510,15 @@ const initialEvents = [
   },
   {
     id: 11,
-    name: 'ELFE ACT',
+    name: '',
     status: 'confirmed',
     eventTypeId: 'event_type_unspecified',
     date: '2026-09-06',
     time: '',
-    clientId: null,
+    clientId: 'client_elfe_band',
     venueId: 'venue_vgp',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 10,
     budget: 0,
     language: '',
@@ -454,14 +540,15 @@ const initialEvents = [
   // UPCOMING DEMO FIXTURES
   {
     id: 12,
-    name: 'Grand Royal Wedding',
+    name: '',
     status: 'enquiry',
     eventTypeId: 'event_type_performance',
-    category: 'Wedding',
     date: '2026-09-28',
     time: '19:00',
     clientId: 'client_rohan_diya',
     venueId: 'venue_taj_coromandel',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 8,
     budget: 90000,
     language: 'Tamil',
@@ -472,14 +559,15 @@ const initialEvents = [
   },
   {
     id: 13,
-    name: 'Corporate Unplugged Night',
+    name: 'Unplugged Gala Night',
     status: 'enquiry',
     eventTypeId: 'event_type_performance',
-    category: 'Corporate',
     date: '2026-09-30',
     time: '18:30',
     clientId: 'client_aster_labs',
     venueId: 'venue_itc_grand_chola',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 6,
     budget: 75000,
     language: 'English',
@@ -493,14 +581,15 @@ const initialEvents = [
   },
   {
     id: 14,
-    name: 'City Cultural Fest',
+    name: 'Cultural Fest Mainstage',
     status: 'confirmed',
     eventTypeId: 'event_type_performance',
-    category: 'Concert',
     date: '2026-10-03',
     time: '19:00',
     clientId: 'client_city_arts',
     venueId: 'venue_museum_theatre',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
     singersCount: 10,
     budget: 120000,
     language: 'Mixed',
@@ -521,108 +610,62 @@ const initialEvents = [
   }
 ];
 
-// Non-Destructive In-Place Schema Migration Engine (v1.5 -> v1.6A)
-function migrateToV16A() {
+// Non-Destructive In-Place Schema Migration Engine (v1.6A -> v1.6B)
+function migrateToV16B() {
   const currentSchema = localStorage.getItem('choirProtoSchemaVersion');
   if (currentSchema === SCHEMA_VERSION) {
-    return; // Already v1.6A schema
+    return; // Already v1.6B schema
   }
 
   console.log(`[Migration] Running non-destructive migration to schema ${SCHEMA_VERSION}...`);
 
-  // Load existing raw collections or fallback to seed
   let peopleList = storageService.get('choirProtoPeople', null);
   let eventsList = storageService.get('choirProtoEvents', null);
   let tagsList = storageService.get('choirProtoTags', null);
   let clientsList = storageService.get('choirProtoClients', null);
   let venuesList = storageService.get('choirProtoVenues', null);
+  let eventTypesList = storageService.get('choirProtoEventTypes', null);
 
+  if (!eventTypesList) eventTypesList = defaultEventTypes;
   if (!tagsList) tagsList = defaultTags;
   if (!clientsList) clientsList = initialClients;
   if (!venuesList) venuesList = initialVenues;
   if (!peopleList) peopleList = initialPeople;
   if (!eventsList) eventsList = initialEvents;
 
-  // Build lookups
-  const clientMap = new Map();
-  clientsList.forEach(c => clientMap.set(c.name.toLowerCase(), c));
-
-  const venueMap = new Map();
-  venuesList.forEach(v => venueMap.set(v.name.toLowerCase(), v));
-
-  const peopleMap = new Map();
-  peopleList.forEach(p => {
-    peopleMap.set(p.id, p);
-    peopleMap.set(p.name.toLowerCase(), p);
+  // Venue location updates for v1.6B
+  venuesList.forEach(v => {
+    if (!v.city) {
+      if (v.name.toLowerCase().includes('juhu')) {
+        v.city = 'Mumbai';
+        v.state = 'Maharashtra';
+      } else {
+        v.city = 'Chennai';
+        v.state = 'Tamil Nadu';
+      }
+    }
   });
 
-  // 1. Transform Events to v1.6A Schema
+  const venueMap = new Map();
+  venuesList.forEach(v => venueMap.set(v.id, v));
+
+  // Transform events
   eventsList.forEach(e => {
-    // Client entity migration
-    if (!e.clientId && e.client && e.client.trim()) {
-      const cKey = e.client.trim().toLowerCase();
-      let matchClient = clientMap.get(cKey);
-      if (!matchClient) {
-        matchClient = { id: generateId('client'), name: e.client.trim(), active: true };
-        clientsList.push(matchClient);
-        clientMap.set(cKey, matchClient);
+    if (!e.city || !e.state) {
+      const vObj = venueMap.get(e.venueId);
+      if (vObj) {
+        e.city = vObj.city || 'Chennai';
+        e.state = vObj.state || 'Tamil Nadu';
+      } else {
+        e.city = 'Chennai';
+        e.state = 'Tamil Nadu';
       }
-      e.clientId = matchClient.id;
-    }
-
-    // Venue entity migration
-    if (!e.venueId && e.venue && e.venue.trim()) {
-      const vKey = e.venue.trim().toLowerCase();
-      let matchVenue = venueMap.get(vKey);
-      if (!matchVenue) {
-        matchVenue = { id: generateId('venue'), name: e.venue.trim(), city: '', state: '', active: true };
-        venuesList.push(matchVenue);
-        venueMap.set(vKey, matchVenue);
-      }
-      e.venueId = matchVenue.id;
-    }
-
-    // EventType migration
-    if (!e.eventTypeId) {
-      const wt = (e.workType || '').toLowerCase();
-      if (wt.includes('perf')) e.eventTypeId = 'event_type_performance';
-      else if (wt.includes('rec')) e.eventTypeId = 'event_type_recording';
-      else if (wt.includes('reh')) e.eventTypeId = 'event_type_rehearsal';
-      else if (wt.includes('shoot')) e.eventTypeId = 'event_type_shoot';
-      else if (wt.includes('sound')) e.eventTypeId = 'event_type_soundcheck';
-      else e.eventTypeId = 'event_type_unspecified';
-    }
-
-    // Assigned Singers Stable ID Migration
-    if (Array.isArray(e.assignedSingers)) {
-      e.assignedSingers = e.assignedSingers.map(s => {
-        if (s.personId) return s; // Already stable ID
-        const personMatch = peopleMap.get((s.name || '').toLowerCase());
-        if (personMatch) {
-          return { personId: personMatch.id, status: s.status || 'Not asked' };
-        }
-        // Fallback: create new Person if unmapped
-        const newP = { id: generateId('p'), name: s.name, gender: 'Female', tagIds: ['tag_new_member'], active: true };
-        peopleList.push(newP);
-        peopleMap.set(newP.id, newP);
-        peopleMap.set(newP.name.toLowerCase(), newP);
-        return { personId: newP.id, status: s.status || 'Not asked' };
-      }).filter(Boolean);
-    }
-
-    // Managers Stable ID Migration
-    if (Array.isArray(e.managers)) {
-      e.managers = e.managers.map(m => {
-        if (m.startsWith('p_') || m.startsWith('person_')) return m; // Already ID
-        const personMatch = peopleMap.get(m.toLowerCase());
-        return personMatch ? personMatch.id : null;
-      }).filter(Boolean);
     }
   });
 
   // Save transformed state to storage
   storageService.set('choirProtoSchemaVersion', SCHEMA_VERSION);
-  storageService.set('choirProtoEventTypes', defaultEventTypes);
+  storageService.set('choirProtoEventTypes', eventTypesList);
   storageService.set('choirProtoTags', tagsList);
   storageService.set('choirProtoClients', clientsList);
   storageService.set('choirProtoVenues', venuesList);
@@ -633,9 +676,9 @@ function migrateToV16A() {
 }
 
 // Run Migration Pipeline
-migrateToV16A();
+migrateToV16B();
 
-// SERVICE LAYER ABSTRACTION (Firebase-ready API surfaces)
+// SERVICE LAYER ABSTRACTION
 
 const peopleService = {
   getAll() {
@@ -725,17 +768,52 @@ const clientService = {
     if (!id) return null;
     return this.getAll().find(c => c.id === id) || null;
   },
-  getOrCreateByName(name) {
+  getOrCreateByName(name, extraData = {}) {
     if (!name || !name.trim()) return null;
     const cleanName = name.trim();
     const clients = this.getAll();
     let match = clients.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
     if (!match) {
-      match = { id: generateId('client'), name: cleanName, active: true };
+      match = {
+        id: generateId('client'),
+        name: cleanName,
+        contactName: extraData.contactName || '',
+        phone: extraData.phone || '',
+        email: extraData.email || '',
+        notes: extraData.notes || '',
+        active: true
+      };
       clients.push(match);
+      storageService.set('choirProtoClients', clients);
+    } else if (extraData.contactName || extraData.phone || extraData.email) {
+      Object.assign(match, extraData);
       storageService.set('choirProtoClients', clients);
     }
     return match;
+  },
+  create(data) {
+    const clients = this.getAll();
+    const newClient = {
+      id: generateId('client'),
+      name: data.name.trim(),
+      contactName: data.contactName || '',
+      phone: data.phone || '',
+      email: data.email || '',
+      notes: data.notes || '',
+      active: true
+    };
+    clients.push(newClient);
+    storageService.set('choirProtoClients', clients);
+    return newClient;
+  },
+  update(id, data) {
+    const clients = this.getAll();
+    const c = clients.find(x => x.id === id);
+    if (c) {
+      Object.assign(c, data);
+      storageService.set('choirProtoClients', clients);
+    }
+    return c;
   }
 };
 
@@ -747,17 +825,39 @@ const venueService = {
     if (!id) return null;
     return this.getAll().find(v => v.id === id) || null;
   },
-  getOrCreateByName(name) {
+  getOrCreateByName(name, city = 'Chennai', state = 'Tamil Nadu') {
     if (!name || !name.trim()) return null;
     const cleanName = name.trim();
     const venues = this.getAll();
     let match = venues.find(v => v.name.toLowerCase() === cleanName.toLowerCase());
     if (!match) {
-      match = { id: generateId('venue'), name: cleanName, city: '', state: '', active: true };
+      match = { id: generateId('venue'), name: cleanName, city: city || '', state: state || '', active: true };
       venues.push(match);
       storageService.set('choirProtoVenues', venues);
     }
     return match;
+  },
+  create(data) {
+    const venues = this.getAll();
+    const newVenue = {
+      id: generateId('venue'),
+      name: data.name.trim(),
+      city: data.city || 'Chennai',
+      state: data.state || 'Tamil Nadu',
+      active: true
+    };
+    venues.push(newVenue);
+    storageService.set('choirProtoVenues', venues);
+    return newVenue;
+  },
+  update(id, data) {
+    const venues = this.getAll();
+    const v = venues.find(x => x.id === id);
+    if (v) {
+      Object.assign(v, data);
+      storageService.set('choirProtoVenues', venues);
+    }
+    return v;
   }
 };
 
@@ -779,6 +879,17 @@ const eventTypeService = {
     if (wt.includes('shoot')) return all.find(t => t.id === 'event_type_shoot') || all[0];
     if (wt.includes('sound')) return all.find(t => t.id === 'event_type_soundcheck') || all[0];
     return all.find(t => t.name.toLowerCase() === wt) || all[0];
+  },
+  create(name) {
+    const all = this.getAll();
+    const cleanName = name.trim();
+    let match = all.find(t => t.name.toLowerCase() === cleanName.toLowerCase());
+    if (!match) {
+      match = { id: generateId('event_type'), name: cleanName, active: true };
+      all.push(match);
+      storageService.set('choirProtoEventTypes', all);
+    }
+    return match;
   }
 };
 
@@ -794,14 +905,17 @@ const eventService = {
     const newEvent = {
       id: Date.now(),
       status: data.status || 'enquiry',
-      name: data.name || 'Untitled Event',
+      name: data.name || '',
       eventTypeId: data.eventTypeId || 'event_type_unspecified',
       date: data.date,
       time: data.time || '',
       clientId: data.clientId || null,
       venueId: data.venueId || null,
+      city: data.city || 'Chennai',
+      state: data.state || 'Tamil Nadu',
       singersCount: Number(data.singersCount || 1),
       budget: Number(data.budget || 0),
+      language: data.language || '',
       notes: data.notes || '',
       managers: data.managers || [],
       assignedSingers: data.assignedSingers || [],
@@ -847,7 +961,6 @@ function getEventTypeById(id) {
 // CORRECT Singer History Calculation: EXCLUDES manager-only appearances!
 function getSingerHistory(personId) {
   const events = eventService.getAll();
-  // Filter events where person is explicitly in assignedSingers (excluding manager-only)
   const pastEvents = events.filter(e => {
     return (e.assignedSingers || []).some(s => s.personId === personId);
   }).sort((a, b) => b.date.localeCompare(a.date));
