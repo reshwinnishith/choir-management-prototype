@@ -111,12 +111,6 @@
 
       <div class="section row between"><h2>Upcoming</h2><span class="meta" onclick="go('calendar')">View calendar →</span></div>
       <div id="homeEvents"></div>
-
-      <div class="section row between"><h2>Needs attention</h2><span class="meta">availability</span></div>
-      <div class="card compact">
-        <div class="row between"><div><div class="title">Wedding · Sep 28</div><div class="muted">1 assigned singer unavailable</div></div><span class="pill enquiry">Action needed</span></div>
-        <button class="btn soft small full" style="margin-top:12px" onclick="openReplacement()">Find a replacement</button>
-      </div>
     </div>
   </div>
 
@@ -163,6 +157,7 @@
         <div class="title">v1.0.0</div>
         <div class="muted" style="margin-top:6px">- Initial static working prototype deployed to Vercel.</div>
       </div>
+      <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Clear All Data)</button>
     </div>
   </div>
 
@@ -295,20 +290,26 @@ function eventCard(e){
   </div>`
 }
 function render(){
+ const now = new Date();
+ const curMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
  const future=[...events].sort((a,b)=>a.date.localeCompare(b.date));
  document.getElementById('homeEvents').innerHTML=future.slice(0,4).map(eventCard).join('');
- document.getElementById('calendarEvents').innerHTML=events.filter(e=>e.date.startsWith('2026-09')).sort((a,b)=>a.date.localeCompare(b.date)).map(eventCard).join('');
- document.getElementById('statEnq').textContent=events.filter(e=>e.status==='enquiry'&&e.date.startsWith('2026-09')).length;
- document.getElementById('statShows').textContent=events.filter(e=>e.status==='confirmed'&&e.date.startsWith('2026-09')).length;
- document.getElementById('monthCount').textContent=events.filter(e=>e.date.startsWith('2026-09')).length+' entries';
- renderCalendar(); renderSingers();
+ document.getElementById('calendarEvents').innerHTML=events.filter(e=>e.date.startsWith(curMonthStr)).sort((a,b)=>a.date.localeCompare(b.date)).map(eventCard).join('');
+ document.getElementById('statEnq').textContent=events.filter(e=>e.status==='enquiry'&&e.date.startsWith(curMonthStr)).length;
+ document.getElementById('statShows').textContent=events.filter(e=>e.status==='confirmed'&&e.date.startsWith(curMonthStr)).length;
+ document.getElementById('monthCount').textContent=events.filter(e=>e.date.startsWith(curMonthStr)).length+' entries';
+ document.querySelectorAll('.stat .muted')[0].textContent = `${now.toLocaleString('en', {month: 'long'})} enquiries`;
+ document.querySelector('#calendar .eyebrow').textContent = now.toLocaleString('en', {month: 'long', year: 'numeric'});
+ renderCalendar(now, curMonthStr); renderSingers();
 }
-function renderCalendar(){
+function renderCalendar(now, curMonthStr){
  const g=document.getElementById('calGrid');g.innerHTML='';
- const offset=2; // Sept 1 2026 Tuesday
- for(let i=0;i<offset;i++) g.insertAdjacentHTML('beforeend','<div></div>');
- for(let day=1;day<=30;day++){
-  const ds=`2026-09-${String(day).padStart(2,'0')}`, same=events.filter(e=>e.date===ds);
+ const year = now.getFullYear(), month = now.getMonth();
+ const firstDay = new Date(year, month, 1).getDay();
+ const daysInMonth = new Date(year, month + 1, 0).getDate();
+ for(let i=0;i<firstDay;i++) g.insertAdjacentHTML('beforeend','<div></div>');
+ for(let day=1;day<=daysInMonth;day++){
+  const ds=`${curMonthStr}-${String(day).padStart(2,'0')}`, same=events.filter(e=>e.date===ds);
   let cls='day'; if(same.length) cls+=' has'; if(same.some(e=>e.status==='enquiry')&&!same.some(e=>e.status==='confirmed')) cls+=' enq';
   g.insertAdjacentHTML('beforeend',`<div class="${cls}" onclick="focusDay('${ds}')">${day}</div>`);
  }
@@ -318,29 +319,51 @@ function focusDay(ds){
 }
 function renderSingers(){
  document.getElementById('singerList').innerHTML=singers.map((s,i)=>`<div class="card compact">
-  <div class="person">
-   <div class="avatar">${s.name[0]}</div>
-   <div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div><div class="tiny">Last show: ${s.last}</div></div>
+  <div class="row between">
+   <div class="person">
+    <div class="avatar">${s.name[0]}</div>
+    <div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div></div>
+   </div>
+   <button class="btn danger small" style="padding:6px 12px" onclick="deleteGlobalSinger('${s.name}')">Remove</button>
   </div>
  </div>`).join('');
 }
+let editEventId = null;
 function openNew(status){
+ editEventId = null;
  newStatus=status; pickedType='Live';
  document.getElementById('newEyebrow').textContent=status==='enquiry'?'New enquiry':'New confirmed show';
  document.getElementById('newTitle').textContent=status==='enquiry'?'Save the enquiry':'Add the show';
  document.querySelectorAll('.choice button').forEach((b,i)=>b.classList.toggle('on',i===0));
+ document.getElementById('fClient').value = '';
+ document.getElementById('fVenue').value = '';
+ document.getElementById('fSingers').value = '6';
+ document.getElementById('fBudget').value = '60000';
+ document.getElementById('fNotes').value = '';
  document.getElementById('newModal').classList.add('open');
 }
 function pickType(btn){pickedType=btn.dataset.type; document.querySelectorAll('.choice button').forEach(x=>x.classList.remove('on'));btn.classList.add('on')}
 function saveEvent(){
- const e={id:Date.now(),status:newStatus,category:fCategory.value,type:pickedType,date:fDate.value,time:fTime.value,client:fClient.value||'New client',venue:fVenue.value||'Venue TBC',singers:Number(fSingers.value||1),budget:Number(fBudget.value||0),language:fLanguage.value,notes:fNotes.value,assigned:[]};
- events.push(e);localStorage.setItem('choirProtoEvents',JSON.stringify(events));closeModal('newModal');render();go('home');
+ const data={category:fCategory.value,type:pickedType,date:fDate.value,time:fTime.value,client:fClient.value||'New client',venue:fVenue.value||'Venue TBC',singers:Number(fSingers.value||1),budget:Number(fBudget.value||0),language:fLanguage.value,notes:fNotes.value};
+ if(editEventId) {
+  const e = events.find(x=>x.id===editEventId);
+  Object.assign(e, data);
+ } else {
+  events.push({id:Date.now(), status:newStatus, assigned:[], ...data});
+ }
+ localStorage.setItem('choirProtoEvents',JSON.stringify(events));
+ closeModal('newModal'); render();
+ if(!editEventId) go('home'); else openDetail(editEventId);
 }
 function openDetail(id){
  const e=events.find(x=>x.id===id), d=dateParts(e.date);
  const assigned=e.assigned||[];
  document.getElementById('detailBody').innerHTML=`<div class="handle"></div>
  <div class="row between"><div><div class="eyebrow">${e.status==='confirmed'?'Confirmed show':'Enquiry'}</div><h2>${e.category} · ${d.full}</h2></div><button class="btn ghost small" onclick="closeModal('detailModal')">Close</button></div>
+ <div class="row" style="margin-top:12px; gap:8px;">
+   <button class="btn soft small full" onclick="openEditEvent(${e.id})">Edit</button>
+   <button class="btn danger small full" onclick="deleteEvent(${e.id})">Delete</button>
+ </div>
  <div class="card compact" style="margin-top:14px">
    <div class="row between"><span class="muted">Client</span><b>${e.client}</b></div>
    <div class="row between" style="margin-top:8px"><span class="muted">Venue</span><b>${e.venue}</b></div>
@@ -398,6 +421,46 @@ function openReplacement(){
 }
 function chooseReplacement(name){alert(name+' assigned as replacement ✓');closeModal('replaceModal')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
+function openEditEvent(id) {
+ const e=events.find(x=>x.id===id);
+ editEventId = id; newStatus = e.status; pickedType = e.type;
+ document.getElementById('newEyebrow').textContent='Edit '+newStatus;
+ document.getElementById('newTitle').textContent='Edit Details';
+ document.querySelectorAll('.choice button').forEach(b=>b.classList.toggle('on',b.dataset.type===pickedType));
+ document.getElementById('fCategory').value = e.category;
+ document.getElementById('fDate').value = e.date;
+ document.getElementById('fTime').value = e.time;
+ document.getElementById('fClient').value = e.client;
+ document.getElementById('fVenue').value = e.venue;
+ document.getElementById('fSingers').value = e.singers;
+ document.getElementById('fBudget').value = e.budget;
+ document.getElementById('fLanguage').value = e.language;
+ document.getElementById('fNotes').value = e.notes || '';
+ closeModal('detailModal');
+ document.getElementById('newModal').classList.add('open');
+}
+function deleteEvent(id) {
+ if(confirm('Are you sure you want to delete this event?')) {
+   events = events.filter(e => e.id !== id);
+   localStorage.setItem('choirProtoEvents',JSON.stringify(events));
+   closeModal('detailModal');
+   render();
+ }
+}
+function deleteGlobalSinger(name){
+ if(confirm('Remove '+name+' from the global roster?')) {
+   singers = singers.filter(s=>s.name!==name);
+   localStorage.setItem('choirProtoSingers', JSON.stringify(singers));
+   renderSingers();
+ }
+}
+function resetApp() {
+ if(confirm('This will delete ALL data and start completely fresh. Are you sure?')) {
+   localStorage.removeItem('choirProtoEvents');
+   localStorage.removeItem('choirProtoSingers');
+   events = []; singers = []; render(); go('home');
+ }
+}
 function openNewSinger(){ document.getElementById('newSingerModal').classList.add('open'); }
 function saveNewSinger(){
  const name = document.getElementById('sName').value;
