@@ -1,245 +1,293 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Choir Manager — Working Prototype</title>
-<style>
-  :root{
-    --bg:#f6f6f2; --card:#ffffff; --ink:#171817; --muted:#777a76; --line:#e7e7e1;
-    --brand:#24372b; --brand2:#dfe8df; --amber:#f1c966; --green:#2f7a4b; --red:#b94a48;
-    --shadow:0 10px 28px rgba(22,28,23,.08); --radius:20px;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:#e9e9e5;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
-  button,input,select,textarea{font:inherit}
-  button{cursor:pointer}
-  .phone{max-width:430px;min-height:100vh;margin:0 auto;background:var(--bg);position:relative;overflow-x:hidden;padding-bottom:92px}
-  .top{padding:22px 20px 12px;position:sticky;top:0;background:rgba(246,246,242,.94);backdrop-filter:blur(14px);z-index:4;border-bottom:1px solid rgba(231,231,225,.7)}
-  .eyebrow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:700}
-  h1{font-size:28px;line-height:1.05;margin:5px 0 0}
-  h2{font-size:18px;margin:0}
-  .sub{color:var(--muted);font-size:14px;margin-top:5px}
-  .content{padding:16px 16px 28px}
-  .row{display:flex;align-items:center;gap:10px}
-  .between{justify-content:space-between}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:var(--shadow)}
-  .stat b{font-size:25px;display:block;margin-top:4px}
-  .section{margin:22px 0 10px}
-  .section .meta{font-size:12px;color:var(--muted)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:10px 0;box-shadow:var(--shadow)}
-  .card.compact{padding:13px}
-  .title{font-weight:800;font-size:16px}
-  .muted{color:var(--muted);font-size:13px}
-  .tiny{font-size:11px;color:var(--muted)}
-  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:750;background:#efefe9}
-  .pill.enquiry{background:#fff4cc;color:#6d5612}
-  .pill.confirmed{background:#e3f1e8;color:#225c37}
-  .pill.live{background:#ebe7f7;color:#5c4f8b}
-  .pill.recording{background:#e7eff9;color:#3e6389}
-  button.pill{border:1px solid transparent;cursor:pointer;color:var(--muted);transition:0.2s}
-  button.pill.on{background:var(--brand);color:#fff}
-  .btn{border:0;border-radius:14px;padding:12px 14px;font-weight:800}
-  .btn.primary{background:var(--brand);color:#fff}
-  .btn.soft{background:var(--brand2);color:var(--brand)}
-  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
-  .btn.danger{background:#fae7e7;color:#8a302e}
-  .btn.small{padding:8px 10px;border-radius:11px;font-size:12px}
-  .full{width:100%}
-  .quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-  .quick button{height:74px;text-align:left}
-  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);background:rgba(255,255,255,.97);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:9;backdrop-filter:blur(16px)}
-  .nav button{background:none;border:0;color:#73766f;font-size:11px;padding:6px 2px}
-  .nav button.active{color:var(--brand);font-weight:850}
-  .nav .ico{font-size:20px;display:block;margin-bottom:2px}
-  .screen{display:none}.screen.active{display:block}
-  .event-line{display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:center}
-  .datebox{background:#f1f1eb;border-radius:14px;text-align:center;padding:8px 3px}
-  .datebox b{display:block;font-size:18px}.datebox span{font-size:10px;color:var(--muted);text-transform:uppercase}
-  .money{font-weight:800;font-size:13px}
-  .tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  .person{display:grid;grid-template-columns:42px 1fr;gap:10px;align-items:center}
-  .avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#d9e5db,#c9c9e9);display:grid;place-items:center;font-weight:900;color:#35443a}
-  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}.dot.ok{background:#3c9a5d}.dot.no{background:#c45a57}
-  .look-cover{height:142px;border-radius:16px;margin-bottom:12px;overflow:hidden;display:grid;grid-template-columns:2fr 1fr 1fr;gap:5px;background:#ddd}
-  .look-cover div{min-height:100%}
-  .black{background:linear-gradient(145deg,#181818,#3b332d)}
-  .gold{background:linear-gradient(145deg,#d6b45b,#f1db8a)}
-  .cream{background:linear-gradient(145deg,#f1ede4,#d7c9b6)}
-  .pastel1{background:linear-gradient(145deg,#e7d7e8,#b8cedf)}
-  .pastel2{background:linear-gradient(145deg,#e7d7bd,#d6bec7)}
-  .holiday1{background:linear-gradient(145deg,#3f6d4f,#173724)}
-  .holiday2{background:linear-gradient(145deg,#9a2f2f,#d8b56b)}
-  .calendar{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow)}
-  .cal-head,.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-  .cal-head div{text-align:center;font-size:10px;color:var(--muted);padding:4px}
-  .day{aspect-ratio:1;border-radius:12px;display:grid;place-items:center;position:relative;font-size:13px;background:#fafaf7}
-  .day.has::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--green);position:absolute;bottom:5px}
-  .day.enq::after{background:var(--amber)}
-  .day.selected{background:var(--brand);color:#fff;font-weight:800}
-  .modalwrap{position:fixed;inset:0;background:rgba(18,22,18,.42);display:none;align-items:flex-end;justify-content:center;z-index:20}
-  .modalwrap.open{display:flex}
-  .modal{width:min(430px,100%);max-height:90vh;overflow:auto;background:var(--bg);border-radius:26px 26px 0 0;padding:12px 16px calc(24px + env(safe-area-inset-bottom))}
-  .handle{width:44px;height:5px;background:#caccc6;border-radius:999px;margin:0 auto 12px}
-  label{display:block;font-size:12px;font-weight:800;margin:13px 0 6px;color:#4d504b}
-  input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:13px;padding:12px 12px;outline:none}
-  textarea{min-height:86px;resize:vertical}
-  .form2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .choice{display:flex;gap:8px}
-  .choice button{flex:1}
-  .choice button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-  .notice{background:#eff3ed;border:1px solid #dae3d7;border-radius:14px;padding:12px;font-size:13px;margin:10px 0}
-  .replacement{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
-  .empty{text-align:center;color:var(--muted);padding:28px 10px}
-  .fab{position:fixed;bottom:88px;right:max(18px,calc((100vw - 430px)/2 + 18px));z-index:7;width:52px;height:52px;border-radius:50%;border:0;background:var(--brand);color:#fff;font-size:28px;box-shadow:0 12px 30px rgba(36,55,43,.27)}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Choir Manager — v1.4 Client Workflow</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <div class="phone">
+
+  <!-- HOME SCREEN -->
   <div id="home" class="screen active">
-    <div class="top"><div class="eyebrow">Choir Manager</div><h1>Good afternoon 👋</h1><div class="sub">Enquiries, shows, singers and looks — in one place.</div></div>
+    <div class="top">
+      <div class="top-header-row">
+        <div>
+          <div class="eyebrow">Choir Manager</div>
+          <h1>Good afternoon 👋</h1>
+        </div>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+      </div>
+      <div class="sub">September enquiries, shows, lineups & roster.</div>
+    </div>
     <div class="content">
       <div class="grid2">
-        <div class="stat"><span class="muted">September enquiries</span><b id="statEnq">3</b></div>
-        <div class="stat"><span class="muted">Confirmed shows</span><b id="statShows">4</b></div>
+        <div class="stat"><span class="muted">September enquiries</span><b id="statEnq">0</b></div>
+        <div class="stat"><span class="muted">Confirmed shows</span><b id="statShows">0</b></div>
       </div>
       <div class="quick">
-        <button class="btn primary" onclick="openNew('enquiry')">＋ New enquiry<br><span style="font-weight:500;opacity:.75">Save it quickly</span></button>
-        <button class="btn soft" onclick="openNew('confirmed')">＋ Confirmed show<br><span style="font-weight:500;opacity:.75">Add directly</span></button>
+        <button class="btn primary" onclick="openNew('enquiry')">＋ New enquiry<br><span style="font-weight:500;opacity:.75">Save quick details</span></button>
+        <button class="btn soft" onclick="openNew('confirmed')">＋ Confirmed show<br><span style="font-weight:500;opacity:.75">Add to calendar</span></button>
       </div>
 
-      <div class="section row between"><h2>Upcoming</h2><span class="meta" onclick="go('calendar')">View calendar →</span></div>
+      <!-- Needs Attention Section -->
+      <div class="section row between">
+        <h2>Needs Attention</h2>
+      </div>
+      <div id="needsAttentionList"></div>
+
+      <!-- Upcoming Events Section -->
+      <div class="section row between">
+        <h2>Upcoming Events</h2>
+        <span class="meta" onclick="go('calendar')">View calendar →</span>
+      </div>
       <div id="homeEvents"></div>
     </div>
   </div>
 
+  <!-- CALENDAR SCREEN -->
   <div id="calendar" class="screen">
-    <div class="top"><div class="eyebrow">September 2026</div><h1>Calendar</h1><div class="sub">Yellow = enquiry · Green = confirmed.</div></div>
+    <div class="top">
+      <div class="top-header-row">
+        <div>
+          <div class="eyebrow">September 2026</div>
+          <h1>Calendar</h1>
+        </div>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+      </div>
+      <div class="sub">Yellow = enquiry · Green = confirmed show.</div>
+    </div>
     <div class="content">
       <div class="calendar">
         <div class="cal-head"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
         <div id="calGrid" class="cal-grid"></div>
       </div>
-      <div class="section row between"><h2>All this month</h2><span class="meta" id="monthCount"></span></div>
+      <div class="section row between">
+        <h2>All this month</h2>
+        <span class="meta" id="monthCount">0 entries</span>
+      </div>
       <div id="calendarEvents"></div>
     </div>
   </div>
 
+  <!-- SINGERS SCREEN -->
   <div id="singers" class="screen">
-    <div class="top"><div class="eyebrow">Roster</div><h1>Singers</h1><div class="sub">Language, live/recording suitability and availability.</div></div>
+    <div class="top">
+      <div class="top-header-row">
+        <div>
+          <div class="eyebrow">Roster & Rotation</div>
+          <h1>Singers</h1>
+        </div>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+      </div>
+      <div class="sub">Search singers, view languages & show history.</div>
+    </div>
     <div class="content">
-      <button class="btn soft full" style="margin-bottom:14px" onclick="openNewSinger()">＋ Add new singer</button>
-      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="updateSingerFilters()" style="margin-bottom:10px">
+      <button class="btn soft full" style="margin-bottom:12px" onclick="openNewSinger()">＋ Add new singer</button>
+      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="renderSingers()" style="margin-bottom:10px">
       <div class="grid2" style="margin-bottom:14px">
-        <select id="singerTypeFilter" onchange="updateSingerFilters()"><option value="All">All Types</option><option value="Both">Both</option><option value="Live">Live</option><option value="Recording">Recording</option></select>
-        <select id="singerLangFilter" onchange="updateSingerFilters()"><option value="All">All Langs</option><option value="Tamil">Tamil</option><option value="English">English</option><option value="Hindi">Hindi</option><option value="Malayalam">Malayalam</option></select>
+        <select id="singerTypeFilter" onchange="renderSingers()">
+          <option value="All">All Work Types</option>
+          <option value="Both">Both (Perf & Rec)</option>
+          <option value="Performance">Performance</option>
+          <option value="Recording">Recording</option>
+        </select>
+        <select id="singerLangFilter" onchange="renderSingers()">
+          <option value="All">All Languages</option>
+          <option value="Tamil">Tamil</option>
+          <option value="English">English</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Malayalam">Malayalam</option>
+        </select>
       </div>
       <div id="singerList"></div>
     </div>
   </div>
 
-  <div id="versions" class="screen">
-    <div class="top"><div class="eyebrow">Changelog</div><h1>Version history</h1><div class="sub">Track deployments and updates.</div></div>
+  <!-- LOOKS SCREEN -->
+  <div id="looks" class="screen">
+    <div class="top">
+      <div class="top-header-row">
+        <div>
+          <div class="eyebrow">Outfit Moodboards</div>
+          <h1>Looks</h1>
+        </div>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+      </div>
+      <div class="sub">Reusable dress codes and styling notes for shows.</div>
+    </div>
     <div class="content">
-      <div class="card">
-        <div class="row between"><div class="title">v1.3.0</div><span class="pill confirmed">Latest</span></div>
-        <div class="muted" style="margin-top:6px">- Added capability to add new singers to the global roster.</div>
-      </div>
-      <div class="card">
-        <div class="row between"><div class="title">v1.2.0</div></div>
-        <div class="muted" style="margin-top:6px">- Added a Version History tab to track app updates.</div>
-      </div>
-      <div class="card">
-        <div class="title">v1.1.0</div>
-        <div class="muted" style="margin-top:6px">- Added interactive UI to assign and remove singers from shows manually.<br>- New Assign popup.</div>
-      </div>
-      <div class="card">
-        <div class="title">v1.0.1</div>
-        <div class="muted" style="margin-top:6px">- Removed the "Looks" tab.<br>- Removed "available/unavailable" indicator from Singers tab.</div>
-      </div>
-      <div class="card">
-        <div class="title">v1.0.0</div>
-        <div class="muted" style="margin-top:6px">- Initial static working prototype deployed to Vercel.</div>
-      </div>
-      <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Clear All Data)</button>
+      <button class="btn soft full" style="margin-bottom:14px" onclick="openNewLook()">＋ Create new look</button>
+      <div id="looksList"></div>
     </div>
   </div>
 
+  <!-- FAB -->
   <button id="fab" class="fab" onclick="openNew('enquiry')" aria-label="New enquiry">+</button>
 
+  <!-- BOTTOM NAVIGATION -->
   <div class="nav">
     <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
     <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
     <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Singers</button>
-    <button data-screen="versions" onclick="go('versions')"><span class="ico">◷</span>Versions</button>
+    <button data-screen="looks" onclick="go('looks')"><span class="ico">🎨</span>Looks</button>
   </div>
 </div>
 
+<!-- MODAL: NEW / EDIT EVENT -->
 <div id="newModal" class="modalwrap" onclick="if(event.target===this)closeModal('newModal')">
   <div class="modal">
     <div class="handle"></div>
-    <div class="row between"><div><div class="eyebrow" id="newEyebrow">New enquiry</div><h2 id="newTitle">Save the enquiry</h2></div><button class="btn ghost small" onclick="closeModal('newModal')">Close</button></div>
-    <label>Event category</label>
-    <select id="fCategory"><option>Wedding</option><option>Corporate</option><option>Private Event</option><option>Concert</option></select>
-    <label>Performance type</label>
-    <div class="choice">
-      <button class="btn ghost on" data-type="Live" onclick="pickType(this)">Live</button>
-      <button class="btn ghost" data-type="Recording" onclick="pickType(this)">Recording</button>
+    <div class="row between">
+      <div>
+        <div class="eyebrow" id="newEyebrow">New enquiry</div>
+        <h2 id="newTitle">Save event details</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('newModal')">Close</button>
     </div>
+
+    <label>Show / Event Name</label>
+    <input id="fName" placeholder="e.g. Staccato, ELFE ACT, Sardar Audio launch">
+
+    <label>Event Category</label>
+    <select id="fCategory">
+      <option value="">Unspecified</option>
+      <option value="Wedding">Wedding</option>
+      <option value="Corporate">Corporate</option>
+      <option value="Private Event">Private Event</option>
+      <option value="Concert">Concert</option>
+    </select>
+
+    <label>Work Type</label>
+    <div class="choice" id="workTypeChoice">
+      <button class="btn ghost on" data-type="Unspecified" onclick="pickWorkType(this)">Unspecified</button>
+      <button class="btn ghost" data-type="Performance" onclick="pickWorkType(this)">Performance</button>
+      <button class="btn ghost" data-type="Recording" onclick="pickWorkType(this)">Recording</button>
+      <button class="btn ghost" data-type="Rehearsal" onclick="pickWorkType(this)">Rehearsal</button>
+      <button class="btn ghost" data-type="Shoot" onclick="pickWorkType(this)">Shoot</button>
+      <button class="btn ghost" data-type="Soundcheck" onclick="pickWorkType(this)">Soundcheck</button>
+      <button class="btn ghost" data-type="Custom" onclick="pickWorkType(this)">Custom</button>
+    </div>
+
+    <div id="fCustomWorkGroup" style="display:none; margin-top:8px">
+      <label>Custom Work Type Name</label>
+      <input id="fCustomWorkType" placeholder="e.g. Workshop, Audition, Broadcast">
+    </div>
+
     <div class="form2">
       <div><label>Date</label><input id="fDate" type="date" value="2026-09-30"></div>
-      <div><label>Show time</label><input id="fTime" type="time" value="19:00"></div>
+      <div><label>Show time</label><input id="fTime" type="time"></div>
     </div>
-    <label>Client name</label><input id="fClient" placeholder="e.g. Arun & Maya">
-    <label>Venue</label><input id="fVenue" placeholder="e.g. Taj Coromandel">
+
+    <label>Client Name</label><input id="fClient" placeholder="Optional / Leave blank if unknown">
+    <label>Venue / Place</label><input id="fVenue" placeholder="e.g. Chennai trade centre / Intercontinental">
+
     <div class="form2">
-      <div><label>No. of singers</label><input id="fSingers" type="number" min="1" value="6"></div>
-      <div><label>Budget (₹)</label><input id="fBudget" type="number" min="0" step="1000" value="60000"></div>
+      <div><label>No. of singers required</label><input id="fSingers" type="number" min="1" value="8"></div>
+      <div><label>Budget (₹)</label><input id="fBudget" type="number" min="0" step="1000" placeholder="Optional"></div>
     </div>
+
     <label>Language</label>
-    <select id="fLanguage"><option>Tamil</option><option>English</option><option>Hindi</option><option>Malayalam</option><option>Mixed</option></select>
-    <label>Notes</label><textarea id="fNotes" placeholder="Anything useful from the call / WhatsApp enquiry…"></textarea>
-    <button class="btn primary full" style="margin-top:14px" onclick="saveEvent()">Save</button>
+    <select id="fLanguage">
+      <option value="">Unspecified</option>
+      <option value="Tamil">Tamil</option>
+      <option value="English">English</option>
+      <option value="Hindi">Hindi</option>
+      <option value="Malayalam">Malayalam</option>
+      <option value="Mixed">Mixed</option>
+    </select>
+
+    <label>Attach Look / Moodboard</label>
+    <select id="fLook">
+      <option value="">None / Custom</option>
+    </select>
+
+    <label>Notes</label>
+    <textarea id="fNotes" placeholder="Client requests, dress code notes, call time details..."></textarea>
+
+    <button class="btn primary full" style="margin-top:14px" onclick="saveEvent()">Save Event</button>
   </div>
 </div>
 
+<!-- MODAL: EVENT DETAILS & LINEUP -->
 <div id="detailModal" class="modalwrap" onclick="if(event.target===this)closeModalSafe('detailModal')">
   <div class="modal" id="detailBody"></div>
 </div>
 
+<!-- MODAL: FIND REPLACEMENT -->
 <div id="replaceModal" class="modalwrap" onclick="if(event.target===this)closeModal('replaceModal')">
   <div class="modal">
     <div class="handle"></div>
-    <div class="row between"><div><div class="eyebrow">Replacement</div><h2>Replace unavailable singer</h2></div><button class="btn ghost small" onclick="closeModal('replaceModal')">Close</button></div>
-    <div class="notice">Filtering for <b>available</b> singers who suit <b>Live</b> work and match <b>Tamil / English</b>.</div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Replacement</div>
+        <h2>Find Replacement</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('replaceModal')">Close</button>
+    </div>
+    <div class="notice" id="replaceNotice">Showing available singers with show history context.</div>
     <div id="replacementList"></div>
   </div>
 </div>
 
+<!-- MODAL: SUGGEST LINEUP -->
+<div id="suggestModal" class="modalwrap" onclick="if(event.target===this)closeModal('suggestModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Smart Suggestions</div>
+        <h2>Suggested Singers</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('suggestModal')">Close</button>
+    </div>
+    <div class="notice">Filtered by work type, language match, and fair rotation history.</div>
+    <div id="suggestList"></div>
+  </div>
+</div>
+
+<!-- MODAL: ASSIGN / ADD SINGER / MANAGER TO LINEUP -->
 <div id="assignModal" class="modalwrap" onclick="if(event.target===this)closeModal('assignModal')">
   <div class="modal">
     <div class="handle"></div>
-    <div class="row between"><div><div class="eyebrow">Roster</div><h2>Add Singer</h2></div><button class="btn ghost small" onclick="closeModal('assignModal')">Close</button></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Roster</div>
+        <h2>Select Person</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('assignModal')">Close</button>
+    </div>
     <div id="assignList" style="margin-top:12px"></div>
   </div>
 </div>
 
+<!-- MODAL: NEW SINGER -->
 <div id="newSingerModal" class="modalwrap" onclick="if(event.target===this)closeModal('newSingerModal')">
   <div class="modal">
     <div class="handle"></div>
-    <div class="row between"><div><div class="eyebrow">Roster</div><h2>Add a new singer</h2></div><button class="btn ghost small" onclick="closeModal('newSingerModal')">Close</button></div>
-    
-    <label>Name</label>
-    <input id="sName" placeholder="e.g. John">
-    
-    <div class="form2">
-      <div><label>Gender</label>
-      <select id="sGender"><option>Male</option><option>Female</option></select></div>
-      <div><label>Category</label>
-      <select id="sType"><option>Both</option><option>Live</option><option>Recording</option></select></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Roster</div>
+        <h2>Add new singer</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('newSingerModal')">Close</button>
     </div>
-    
+
+    <label>Name</label>
+    <input id="sName" placeholder="e.g. John / Aishwarya">
+
+    <div class="form2">
+      <div>
+        <label>Gender</label>
+        <select id="sGender"><option>Female</option><option>Male</option></select>
+      </div>
+      <div>
+        <label>Work Suitability</label>
+        <select id="sType"><option>Both</option><option>Performance</option><option>Recording</option></select>
+      </div>
+    </div>
+
     <label>Languages</label>
     <div class="tagrow" id="sLangsGroup">
       <button class="pill" onclick="this.classList.toggle('on')">Tamil</button>
@@ -247,281 +295,76 @@
       <button class="pill" onclick="this.classList.toggle('on')">Hindi</button>
       <button class="pill" onclick="this.classList.toggle('on')">Malayalam</button>
     </div>
-    
+
     <button class="btn primary full" style="margin-top:24px" onclick="saveNewSinger()">Save Singer</button>
   </div>
 </div>
 
-<script>
-const initialEvents = [
-  {id:1,status:'confirmed',category:'Wedding',type:'Live',date:'2026-09-28',time:'19:30',client:'Rohan & Diya',venue:'Taj Coromandel',singers:8,budget:90000,language:'Tamil',notes:'Black & Gold look',assigned:['Ananya','Sharon','Rahul']},
-  {id:2,status:'confirmed',category:'Corporate',type:'Live',date:'2026-09-26',time:'18:30',client:'Aster Labs',venue:'ITC Grand Chola',singers:6,budget:75000,language:'English',notes:'Formal corporate set',assigned:['Nisha','Rahul']},
-  {id:3,status:'enquiry',category:'Private Event',type:'Live',date:'2026-09-30',time:'20:00',client:'Neha',venue:'ECR Residence',singers:5,budget:55000,language:'Mixed',notes:'Awaiting confirmation',assigned:[]},
-  {id:4,status:'enquiry',category:'Concert',type:'Recording',date:'2026-09-25',time:'11:00',client:'Studio 9',venue:'Nungambakkam',singers:4,budget:40000,language:'Tamil',notes:'Guide vocals / ensemble',assigned:[]},
-  {id:5,status:'confirmed',category:'Concert',type:'Live',date:'2026-10-03',time:'19:00',client:'City Arts',venue:'Museum Theatre',singers:10,budget:120000,language:'Mixed',notes:'Large ensemble',assigned:['Ananya','Meera','Nisha']},
-  {id:6,status:'confirmed',category:'Wedding',type:'Live',date:'2026-09-23',time:'19:00',client:'Varun & Sana',venue:'Leela Palace',singers:6,budget:80000,language:'Tamil',notes:'Soft Pastels',assigned:['Meera','Nisha']}
-];
-const initialSingers = [
- {name:'Ananya',gender:'Female',langs:['Tamil','English'],type:'Both',available:true,last:'Sep 14'},
- {name:'Meera',gender:'Female',langs:['Tamil','Malayalam'],type:'Live',available:true,last:'Sep 23'},
- {name:'Sharon',gender:'Female',langs:['English','Tamil'],type:'Both',available:false,last:'Sep 10'},
- {name:'Rahul',gender:'Male',langs:['Tamil','Hindi','English'],type:'Both',available:true,last:'Sep 18'},
- {name:'Nisha',gender:'Female',langs:['English','Hindi'],type:'Recording',available:true,last:'Sep 23'},
- {name:'Aaron',gender:'Male',langs:['English','Tamil'],type:'Live',available:true,last:'Aug 29'},
- {name:'Divya',gender:'Female',langs:['Tamil','English'],type:'Both',available:true,last:'Sep 02'},
- {name:'Joel',gender:'Male',langs:['English','Malayalam'],type:'Both',available:true,last:'Aug 22'}
-];
+<!-- MODAL: NEW / EDIT LOOK -->
+<div id="newLookModal" class="modalwrap" onclick="if(event.target===this)closeModal('newLookModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Moodboard</div>
+        <h2>Outfit Look Details</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('newLookModal')">Close</button>
+    </div>
 
-let events = JSON.parse(localStorage.getItem('choirProtoEvents')||'null') || initialEvents;
-let singers = JSON.parse(localStorage.getItem('choirProtoSingers')||'null') || initialSingers;
-let newStatus='enquiry', pickedType='Live';
-function money(v){return '₹'+Number(v).toLocaleString('en-IN')}
-function dateParts(d){const x=new Date(d+'T00:00:00');return {day:x.getDate(),mon:x.toLocaleString('en',{month:'short'}),full:x.toLocaleString('en',{day:'numeric',month:'short'})}}
-function go(id){
- document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');
- document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.screen===id));
- document.getElementById('fab').style.display=(id==='home'||id==='calendar')?'block':'none';
- window.scrollTo(0,0);
-}
-function eventCard(e){
- const d=dateParts(e.date);
- return `<div class="card compact" onclick="openDetail(${e.id})">
-   <div class="event-line">
-    <div class="datebox"><span>${d.mon}</span><b>${d.day}</b></div>
-    <div><div class="title">${e.category}</div><div class="muted">${e.client||'No client'} · ${e.venue||'Venue TBC'}</div>
-    <div class="tagrow"><span class="pill ${e.status}">${e.status==='confirmed'?'Confirmed':'Enquiry'}</span><span class="pill ${e.type.toLowerCase()}">${e.type}</span><span class="pill">${e.singers} singers</span></div></div>
-    <div class="money">${money(e.budget)}</div>
-   </div>
-  </div>`
-}
-function render(){
- const now = new Date();
- const curMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
- const future=[...events].sort((a,b)=>a.date.localeCompare(b.date));
- document.getElementById('homeEvents').innerHTML=future.slice(0,4).map(eventCard).join('');
- document.getElementById('calendarEvents').innerHTML=events.filter(e=>e.date.startsWith(curMonthStr)).sort((a,b)=>a.date.localeCompare(b.date)).map(eventCard).join('');
- document.getElementById('statEnq').textContent=events.filter(e=>e.status==='enquiry'&&e.date.startsWith(curMonthStr)).length;
- document.getElementById('statShows').textContent=events.filter(e=>e.status==='confirmed'&&e.date.startsWith(curMonthStr)).length;
- document.getElementById('monthCount').textContent=events.filter(e=>e.date.startsWith(curMonthStr)).length+' entries';
- document.querySelectorAll('.stat .muted')[0].textContent = `${now.toLocaleString('en', {month: 'long'})} enquiries`;
- document.querySelector('#calendar .eyebrow').textContent = now.toLocaleString('en', {month: 'long', year: 'numeric'});
- renderCalendar(now, curMonthStr); renderSingers();
-}
-function renderCalendar(now, curMonthStr){
- const g=document.getElementById('calGrid');g.innerHTML='';
- const year = now.getFullYear(), month = now.getMonth();
- const firstDay = new Date(year, month, 1).getDay();
- const daysInMonth = new Date(year, month + 1, 0).getDate();
- for(let i=0;i<firstDay;i++) g.insertAdjacentHTML('beforeend','<div></div>');
- for(let day=1;day<=daysInMonth;day++){
-  const ds=`${curMonthStr}-${String(day).padStart(2,'0')}`, same=events.filter(e=>e.date===ds);
-  let cls='day'; if(same.length) cls+=' has'; if(same.some(e=>e.status==='enquiry')&&!same.some(e=>e.status==='confirmed')) cls+=' enq';
-  g.insertAdjacentHTML('beforeend',`<div class="${cls}" onclick="focusDay('${ds}')">${day}</div>`);
- }
-}
-function focusDay(ds){
- const items=events.filter(e=>e.date===ds); if(items.length) openDetail(items[0].id);
-}
-function updateSingerFilters() { renderSingers(); }
-function renderSingers(){
- const q = (document.getElementById('singerSearch')?.value || '').toLowerCase();
- const typeFilter = document.getElementById('singerTypeFilter')?.value || 'All';
- const langFilter = document.getElementById('singerLangFilter')?.value || 'All';
+    <label>Look Name</label>
+    <input id="lName" placeholder="e.g. Black & Gold Elegance">
 
- const filtered = singers.filter(s => {
-   if(q && !s.name.toLowerCase().includes(q)) return false;
-   if(typeFilter !== 'All') {
-     if(typeFilter === 'Live' && s.type !== 'Live' && s.type !== 'Both') return false;
-     if(typeFilter === 'Recording' && s.type !== 'Recording' && s.type !== 'Both') return false;
-     if(typeFilter === 'Both' && s.type !== 'Both') return false;
-   }
-   if(langFilter !== 'All' && !s.langs.includes(langFilter)) return false;
-   return true;
- });
+    <label>Color Scheme Notes</label>
+    <input id="lColors" placeholder="e.g. Matte black base with warm gold embroidery">
 
- document.getElementById('singerList').innerHTML = filtered.length ? filtered.map((s,i)=>`<div class="card compact">
-  <div class="row between">
-   <div class="person">
-    <div class="avatar">${s.name[0]}</div>
-    <div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div></div>
-   </div>
-   <button class="btn danger small" style="padding:6px 12px" onclick="deleteGlobalSinger('${s.name}')">Remove</button>
+    <label>Women's Dress Instructions</label>
+    <textarea id="lWomen" placeholder="e.g. Black silk saree with gold border, gold traditional jewelry"></textarea>
+
+    <label>Men's Dress Instructions</label>
+    <textarea id="lMen" placeholder="e.g. Black bandhgala suit, gold pocket square"></textarea>
+
+    <label>General Notes / Stage Lighting</label>
+    <textarea id="lNotes" placeholder="e.g. Stage lighting friendly, avoid shiny metals"></textarea>
+
+    <button class="btn primary full" style="margin-top:16px" onclick="saveLook()">Save Look</button>
   </div>
- </div>`).join('') : '<div class="empty">No singers found.</div>';
-}
-let editEventId = null;
-function openNew(status){
- editEventId = null;
- newStatus=status; pickedType='Live';
- document.getElementById('newEyebrow').textContent=status==='enquiry'?'New enquiry':'New confirmed show';
- document.getElementById('newTitle').textContent=status==='enquiry'?'Save the enquiry':'Add the show';
- document.querySelectorAll('.choice button').forEach((b,i)=>b.classList.toggle('on',i===0));
- document.getElementById('fClient').value = '';
- document.getElementById('fVenue').value = '';
- document.getElementById('fSingers').value = '6';
- document.getElementById('fBudget').value = '60000';
- document.getElementById('fNotes').value = '';
- document.getElementById('newModal').classList.add('open');
-}
-function pickType(btn){pickedType=btn.dataset.type; document.querySelectorAll('.choice button').forEach(x=>x.classList.remove('on'));btn.classList.add('on')}
-function saveEvent(){
- const data={category:fCategory.value,type:pickedType,date:fDate.value,time:fTime.value,client:fClient.value||'New client',venue:fVenue.value||'Venue TBC',singers:Number(fSingers.value||1),budget:Number(fBudget.value||0),language:fLanguage.value,notes:fNotes.value};
- if(editEventId) {
-  const e = events.find(x=>x.id===editEventId);
-  Object.assign(e, data);
- } else {
-  events.push({id:Date.now(), status:newStatus, assigned:[], ...data});
- }
- localStorage.setItem('choirProtoEvents',JSON.stringify(events));
- closeModal('newModal'); render();
- if(!editEventId) go('home'); else openDetail(editEventId);
-}
-let detailEventId = null;
-let tempAssigned = null;
+</div>
 
-function renderDetail(){
- const e=events.find(x=>x.id===detailEventId), d=dateParts(e.date);
- const assigned = tempAssigned;
- const isChanged = JSON.stringify(e.assigned||[]) !== JSON.stringify(tempAssigned);
- document.getElementById('detailBody').innerHTML=`<div class="handle"></div>
- <div class="row between"><div><div class="eyebrow">${e.status==='confirmed'?'Confirmed show':'Enquiry'}</div><h2>${e.category} · ${d.full}</h2></div><button class="btn ghost small" onclick="closeModalSafe('detailModal')">Close</button></div>
- <div class="row" style="margin-top:12px; gap:8px;">
-   <button class="btn soft small full" onclick="openEditEvent(${e.id})">Edit</button>
-   <button class="btn danger small full" onclick="deleteEvent(${e.id})">Delete</button>
- </div>
- <div class="card compact" style="margin-top:14px">
-   <div class="row between"><span class="muted">Client</span><b>${e.client}</b></div>
-   <div class="row between" style="margin-top:8px"><span class="muted">Venue</span><b>${e.venue}</b></div>
-   <div class="row between" style="margin-top:8px"><span class="muted">Show time</span><b>${e.time}</b></div>
-   <div class="row between" style="margin-top:8px"><span class="muted">Budget</span><b>${money(e.budget)}</b></div>
-   <div class="row between" style="margin-top:8px"><span class="muted">Need</span><b>${e.singers} singers</b></div>
-   <div class="tagrow"><span class="pill ${e.type.toLowerCase()}">${e.type}</span><span class="pill">${e.language}</span></div>
- </div>
- ${e.notes?`<div class="notice"><b>Notes:</b> ${e.notes}</div>`:''}
- ${e.status==='enquiry'?`<button class="btn primary full" onclick="confirmEvent(${e.id})">Convert enquiry to confirmed show</button>`:
- `<div class="section row between"><h2>Singers</h2><span class="meta">${assigned.length}/${e.singers} assigned</span></div>
- <div class="card compact" style="padding:0">
-  ${assigned.length?assigned.map((n, i)=>`<div class="row between" style="padding:12px; border-bottom:${i<assigned.length-1?'1px solid var(--line)':'none'}"><span style="font-weight:600">${n}</span><button class="btn danger small" onclick="removeSinger('${n}')" style="padding:6px 10px; border-radius:8px">Remove</button></div>`).join(''):'<div class="empty">No singers assigned yet.</div>'}
- </div>
- <div class="row" style="margin-top:12px; gap:8px;">
-   ${isChanged ? `<button class="btn soft full" style="flex:1" onclick="openAssign()">＋ Add Singer</button>
-                  <button class="btn primary full" style="flex:1" onclick="saveAssignedSingers()">Save Changes</button>` : 
-                 `<button class="btn primary full" style="flex:1" onclick="openAssign()">＋ Add Singer</button>`}
- </div>`}
- `;
-}
+<!-- MODAL: SETTINGS & VERSION HISTORY -->
+<div id="settingsModal" class="modalwrap" onclick="if(event.target===this)closeModal('settingsModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">System Utility</div>
+        <h2>Settings & Versions</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('settingsModal')">Close</button>
+    </div>
 
-function openDetail(id){
- detailEventId = id;
- const e=events.find(x=>x.id===id);
- tempAssigned = [...(e.assigned||[])];
- renderDetail();
- document.getElementById('detailModal').classList.add('open');
-}
-function confirmEvent(id){const e=events.find(x=>x.id===id);e.status='confirmed';localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id)}
-function removeSinger(name){
- tempAssigned = tempAssigned.filter(n=>n!==name);
- renderDetail();
-}
-function openAssign(){
- const e=events.find(x=>x.id===detailEventId);
- const unassigned=singers.filter(s=>!(tempAssigned||[]).includes(s.name));
- document.getElementById('assignList').innerHTML=unassigned.map(s=>`<div class="card compact replacement"><div class="person">
- <div class="avatar">${s.name[0]}</div><div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div></div>
- <button class="btn soft small" onclick="assignSinger('${s.name}')">Add</button></div></div>`).join('');
- document.getElementById('assignModal').classList.add('open');
-}
-function assignSinger(name){
- if(!tempAssigned.includes(name)) tempAssigned.push(name);
- renderDetail(); closeModal('assignModal');
-}
-function saveAssignedSingers(){
- const e=events.find(x=>x.id===detailEventId);
- e.assigned = [...tempAssigned];
- localStorage.setItem('choirProtoEvents',JSON.stringify(events));
- render(); renderDetail();
-}
-function hasUnsavedChanges() {
- if (!detailEventId) return false;
- const e=events.find(x=>x.id===detailEventId);
- return JSON.stringify(e.assigned||[]) !== JSON.stringify(tempAssigned);
-}
-function closeModalSafe(id) {
- if (id === 'detailModal' && hasUnsavedChanges()) {
-   if(confirm('You have unsaved changes to the singer lineup. Close without saving?')) {
-     closeModal(id);
-   }
- } else {
-   closeModal(id);
- }
-}
-function openReplacement(){
- const cand=singers.filter(s=>s.available&&(s.type==='Both'||s.type==='Live')&&(s.langs.includes('Tamil')||s.langs.includes('English')));
- document.getElementById('replacementList').innerHTML=cand.map(s=>`<div class="card compact replacement"><div class="person">
- <div class="avatar">${s.name[0]}</div><div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div><div class="tiny">Last show: ${s.last}</div></div>
- <button class="btn soft small" onclick="chooseReplacement('${s.name}')">Choose</button></div></div>`).join('');
- document.getElementById('replaceModal').classList.add('open');
-}
-function chooseReplacement(name){alert(name+' assigned as replacement ✓');closeModal('replaceModal')}
-function closeModal(id){document.getElementById(id).classList.remove('open')}
-function openEditEvent(id) {
- if(hasUnsavedChanges()) {
-   if(!confirm('You have unsaved singer changes. Discard them to edit the event?')) return;
- }
- const e=events.find(x=>x.id===id);
- editEventId = id; newStatus = e.status; pickedType = e.type;
- document.getElementById('newEyebrow').textContent='Edit '+newStatus;
- document.getElementById('newTitle').textContent='Edit Details';
- document.querySelectorAll('.choice button').forEach(b=>b.classList.toggle('on',b.dataset.type===pickedType));
- document.getElementById('fCategory').value = e.category;
- document.getElementById('fDate').value = e.date;
- document.getElementById('fTime').value = e.time;
- document.getElementById('fClient').value = e.client;
- document.getElementById('fVenue').value = e.venue;
- document.getElementById('fSingers').value = e.singers;
- document.getElementById('fBudget').value = e.budget;
- document.getElementById('fLanguage').value = e.language;
- document.getElementById('fNotes').value = e.notes || '';
- closeModal('detailModal');
- document.getElementById('newModal').classList.add('open');
-}
-function deleteEvent(id) {
- if(confirm('Are you sure you want to delete this event?')) {
-   events = events.filter(e => e.id !== id);
-   localStorage.setItem('choirProtoEvents',JSON.stringify(events));
-   closeModal('detailModal');
-   render();
- }
-}
-function deleteGlobalSinger(name){
- if(confirm('Remove '+name+' from the global roster?')) {
-   singers = singers.filter(s=>s.name!==name);
-   localStorage.setItem('choirProtoSingers', JSON.stringify(singers));
-   renderSingers();
- }
-}
-function resetApp() {
- if(confirm('This will delete ALL data and start completely fresh. Are you sure?')) {
-   localStorage.removeItem('choirProtoEvents');
-   localStorage.removeItem('choirProtoSingers');
-   events = []; singers = []; render(); go('home');
- }
-}
-function openNewSinger(){ document.getElementById('newSingerModal').classList.add('open'); }
-function saveNewSinger(){
- const name = document.getElementById('sName').value;
- const gender = document.getElementById('sGender').value;
- const type = document.getElementById('sType').value;
- const langs = Array.from(document.querySelectorAll('#sLangsGroup .on')).map(b=>b.textContent);
- if(!name) return alert('Name required');
- singers.push({name, gender, type, langs, available:true, last:'New'});
- localStorage.setItem('choirProtoSingers', JSON.stringify(singers));
- closeModal('newSingerModal');
- renderSingers();
- document.getElementById('sName').value = '';
- document.querySelectorAll('#sLangsGroup .on').forEach(b=>b.classList.remove('on'));
-}
-render();
-</script>
+    <div class="card compact" style="margin-top:14px">
+      <div class="row between"><div class="title">v1.4.1</div><span class="pill confirmed">Active Version</span></div>
+      <div class="muted" style="margin-top:6px">
+        - Client Workflow Pass (Audit & Data Cleanup).<br>
+        - Historical events preserve strictly spreadsheet data.<br>
+        - Work Type inferred only when explicitly named.<br>
+        - Per-event availability (Not asked, Asked, Available, Unavailable).<br>
+        - Separate Manager vs Singer lineup logic.<br>
+        - Find Replacement candidate matching.<br>
+        - Derived rotation history on Singer cards.
+      </div>
+    </div>
+
+    <div class="card compact">
+      <div class="title">v1.0.0</div>
+      <div class="muted" style="margin-top:4px">- Initial working prototype.</div>
+    </div>
+
+    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to Client Seed Data)</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
