@@ -130,6 +130,11 @@
     <div class="top"><div class="eyebrow">Roster</div><h1>Singers</h1><div class="sub">Language, live/recording suitability and availability.</div></div>
     <div class="content">
       <button class="btn soft full" style="margin-bottom:14px" onclick="openNewSinger()">＋ Add new singer</button>
+      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="updateSingerFilters()" style="margin-bottom:10px">
+      <div class="grid2" style="margin-bottom:14px">
+        <select id="singerTypeFilter" onchange="updateSingerFilters()"><option value="All">All Types</option><option value="Both">Both</option><option value="Live">Live</option><option value="Recording">Recording</option></select>
+        <select id="singerLangFilter" onchange="updateSingerFilters()"><option value="All">All Langs</option><option value="Tamil">Tamil</option><option value="English">English</option><option value="Hindi">Hindi</option><option value="Malayalam">Malayalam</option></select>
+      </div>
       <div id="singerList"></div>
     </div>
   </div>
@@ -317,8 +322,24 @@ function renderCalendar(now, curMonthStr){
 function focusDay(ds){
  const items=events.filter(e=>e.date===ds); if(items.length) openDetail(items[0].id);
 }
+function updateSingerFilters() { renderSingers(); }
 function renderSingers(){
- document.getElementById('singerList').innerHTML=singers.map((s,i)=>`<div class="card compact">
+ const q = (document.getElementById('singerSearch')?.value || '').toLowerCase();
+ const typeFilter = document.getElementById('singerTypeFilter')?.value || 'All';
+ const langFilter = document.getElementById('singerLangFilter')?.value || 'All';
+
+ const filtered = singers.filter(s => {
+   if(q && !s.name.toLowerCase().includes(q)) return false;
+   if(typeFilter !== 'All') {
+     if(typeFilter === 'Live' && s.type !== 'Live' && s.type !== 'Both') return false;
+     if(typeFilter === 'Recording' && s.type !== 'Recording' && s.type !== 'Both') return false;
+     if(typeFilter === 'Both' && s.type !== 'Both') return false;
+   }
+   if(langFilter !== 'All' && !s.langs.includes(langFilter)) return false;
+   return true;
+ });
+
+ document.getElementById('singerList').innerHTML = filtered.length ? filtered.map((s,i)=>`<div class="card compact">
   <div class="row between">
    <div class="person">
     <div class="avatar">${s.name[0]}</div>
@@ -326,7 +347,7 @@ function renderSingers(){
    </div>
    <button class="btn danger small" style="padding:6px 12px" onclick="deleteGlobalSinger('${s.name}')">Remove</button>
   </div>
- </div>`).join('');
+ </div>`).join('') : '<div class="empty">No singers found.</div>';
 }
 let editEventId = null;
 function openNew(status){
