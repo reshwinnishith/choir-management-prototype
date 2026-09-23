@@ -1,592 +1,20 @@
-// Choir Manager - v1.5 Roster Tags + Statistics
+// Choir Manager - v1.6A Client Workflow Pass
 
-const CURRENT_VERSION = 'v1.5.0';
+// Local State References (Managed via Services Layer)
+let people = peopleService.getAll();
+let events = eventService.getAll();
+let tags = tagService.getAll();
+let looks = storageService.get('choirProtoLooks', []);
 
-// Structured Tag Definitions Model
-const defaultTags = [
-  // Membership
-  { id: 'tag_old_member', name: 'Old Member', group: 'membership', active: true },
-  { id: 'tag_new_member', name: 'New Member', group: 'membership', active: true },
-  // Language
-  { id: 'tag_tamil', name: 'Tamil', group: 'language', active: true },
-  { id: 'tag_english', name: 'English', group: 'language', active: true },
-  { id: 'tag_hindi', name: 'Hindi', group: 'language', active: true },
-  { id: 'tag_malayalam', name: 'Malayalam', group: 'language', active: true },
-  // Eligibility
-  { id: 'tag_performance', name: 'Performance', group: 'eligibility', active: true },
-  { id: 'tag_recording', name: 'Recording', group: 'eligibility', active: true }
-];
-
-// Initial Roster Seed Data mapped to Tag IDs
-const initialPeople = [
-  // Old Members
-  { id: 'p_roe', name: 'Roe', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_anuj', name: 'Anuj', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_abraham', name: 'Abraham', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_arnav', name: 'Arnav', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_hindi', 'tag_recording'], active: true },
-  { id: 'p_anjana', name: 'Anjana', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_nandhika', name: 'Nandhika', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_bryan', name: 'Bryan', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_chakki', name: 'Chakki', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_leon', name: 'Leon', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_ritin', name: 'Ritin', gender: 'Male', tagIds: ['tag_old_member', 'tag_malayalam', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_reshwin', name: 'Reshwin', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_reuben', name: 'Reuben', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_serene', name: 'Serene', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_sheena', name: 'Sheena', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_sneha', name: 'Sneha', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_hindi', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_tanya', name: 'Tanya', gender: 'Female', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_tincy', name: 'Tincy', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_tofer', name: 'Tofer', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_vaimu', name: 'Vaimu', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_varsha', name: 'Varsha', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_varshini', name: 'Varshini', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
-  { id: 'p_pragee', name: 'Pragee', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
-
-  // New Members
-  { id: 'p_aishu', name: 'Aishu', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_angel', name: 'Angel', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_dyuti', name: 'Dyuti', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_hindi', 'tag_recording'], active: true },
-  { id: 'p_geejay', name: 'Geejay', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_joe', name: 'Joe', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_kevin', name: 'Kevin', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_mark', name: 'Mark', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_nattu', name: 'Nattu', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_olivia', name: 'Olivia', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_pranav', name: 'Pranav', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_sai', name: 'Sai', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_sebi', name: 'Sebi', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_yazhini', name: 'Yazhini', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_performance'], active: true },
-  { id: 'p_waveen', name: 'Waveen', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_luchy', name: 'Luchy', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_lucky', name: 'Lucky', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-
-  // Spreadsheet 3rd Column Members (Recording Only)
-  { id: 'p_alfred', name: 'Alfred', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_moncy', name: 'Moncy', gender: 'Male', tagIds: ['tag_new_member', 'tag_malayalam', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_aishwarya', name: 'Aishwarya', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_ivan', name: 'Ivan', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_sukanti', name: 'Sukanti', gender: 'Female', tagIds: ['tag_new_member', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_rahul', name: 'Rahul', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_snigdha', name: 'Snigdha', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true }
-];
-
-const initialLooks = [
-  {
-    id: 'look_black_gold',
-    name: 'Black & Gold Elegance',
-    bgGradient: 'linear-gradient(135deg, #181818, #d6b45b)',
-    colorNotes: 'Black base with warm gold accents and accessories.',
-    womenNotes: 'Black saree or Indo-western saree with gold border / gold jewelry.',
-    menNotes: 'Black bandhgala or formal black shirt with gold pocket square.',
-    generalNotes: 'Stage lighting friendly. Avoid shiny silver metals.'
-  },
-  {
-    id: 'look_soft_pastels',
-    name: 'Soft Pastels',
-    bgGradient: 'linear-gradient(135deg, #e7d7e8, #b8cedf)',
-    colorNotes: 'Pastel pinks, icy blue, lavender, and beige.',
-    womenNotes: 'Pastel ethnic gown or lightweight saree.',
-    menNotes: 'Pastel kurta or light beige formal trousers and soft pink shirt.',
-    generalNotes: 'Daytime acoustic & wedding functions.'
-  }
-];
-
-// STRICT HISTORICAL IMPORT DATA (Unsupported fields set to "")
-const initialEvents = [
-  {
-    id: 1,
-    name: 'Staccato',
-    status: 'confirmed',
-    category: '',
-    workType: '',
-    date: '2026-08-08',
-    time: '',
-    client: '',
-    venue: 'Intercontinental',
-    singersCount: 8,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Anjana', status: 'Available' },
-      { name: 'Serene', status: 'Available' },
-      { name: 'Tanya', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Tofer', status: 'Available' },
-      { name: 'Nattu', status: 'Available' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Ashwin Recording',
-    status: 'confirmed',
-    category: '',
-    workType: 'Recording',
-    date: '2026-08-12',
-    time: '',
-    client: '',
-    venue: 'Tase',
-    singersCount: 11,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Sneha', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Snigdha', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Mark', status: 'Available' },
-      { name: 'Rahul', status: 'Available' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Music Video Shoot - Vijay',
-    status: 'confirmed',
-    category: '',
-    workType: 'Shoot',
-    date: '2026-08-20',
-    time: '',
-    client: '',
-    venue: 'Juhu beach',
-    singersCount: 6,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Sheena', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Sebi', status: 'Available' }
-    ]
-  },
-  {
-    id: 4,
-    name: 'Staccato - Recording',
-    status: 'confirmed',
-    category: '',
-    workType: 'Recording',
-    date: '2026-08-23',
-    time: '',
-    client: '',
-    venue: 'Staccato studio - teynampet',
-    singersCount: 17,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Sheena', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Angel', status: 'Available' },
-      { name: 'Anjana', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Aishu', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Tofer', status: 'Available' },
-      { name: 'Nattu', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Waveen', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Mark', status: 'Available' }
-    ]
-  },
-  {
-    id: 5,
-    name: 'Staccato Rehearsal',
-    status: 'confirmed',
-    category: '',
-    workType: 'Rehearsal',
-    date: '2026-08-26',
-    time: '',
-    client: '',
-    venue: 'Staccato studio - teynampet',
-    singersCount: 15,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Angel', status: 'Available' },
-      { name: 'Sneha', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Lucky', status: 'Available' },
-      { name: 'Waveen', status: 'Available' },
-      { name: 'Nattu', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Mark', status: 'Available' },
-      { name: 'Kevin', status: 'Available' }
-    ]
-  },
-  {
-    id: 6,
-    name: 'Staccato Rehersal',
-    status: 'confirmed',
-    category: '',
-    workType: 'Rehearsal',
-    date: '2026-08-27',
-    time: '',
-    client: '',
-    venue: 'Staccato studio - teynampet',
-    singersCount: 14,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Olivia', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Lucky', status: 'Available' },
-      { name: 'Angel', status: 'Available' },
-      { name: 'Waveen', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Sneha', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Nattu', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' }
-    ]
-  },
-  {
-    id: 7,
-    name: 'Staccato Sound check',
-    status: 'confirmed',
-    category: '',
-    workType: 'Soundcheck',
-    date: '2026-08-28',
-    time: '',
-    client: '',
-    venue: 'REC',
-    singersCount: 20,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Sheena', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Sneha', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' },
-      { name: 'Aishu', status: 'Available' },
-      { name: 'Angel', status: 'Available' },
-      { name: 'Olivia', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Tincy', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Lucky', status: 'Available' },
-      { name: 'Nattu', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Waveen', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Mark', status: 'Available' },
-      { name: 'Bryan', status: 'Available' }
-    ]
-  },
-  {
-    id: 8,
-    name: 'Sardar Audio launch',
-    status: 'confirmed',
-    category: '',
-    workType: '',
-    date: '2026-08-31',
-    time: '',
-    client: '',
-    venue: 'Chennai trade centre',
-    singersCount: 16,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: ['Nandhika'],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Sheena', status: 'Available' },
-      { name: 'Nandhika', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Tincy', status: 'Available' },
-      { name: 'Sneha', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Bryan', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Joe', status: 'Available' },
-      { name: 'Mark', status: 'Available' },
-      { name: 'Nattu', status: 'Available' },
-      { name: 'Sai', status: 'Available' }
-    ]
-  },
-  {
-    id: 9,
-    name: 'ELFE ACT (with band)',
-    status: 'confirmed',
-    category: '',
-    workType: '',
-    date: '2026-09-03',
-    time: '',
-    client: '',
-    venue: 'Hindustan clg',
-    singersCount: 10,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: ['Sheena', 'Varsha'],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Tincy', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Joe', status: 'Available' },
-      { name: 'Waveen', status: 'Available' },
-      { name: 'Nattu', status: 'Available' }
-    ]
-  },
-  {
-    id: 10,
-    name: 'Staccato - teachers day',
-    status: 'confirmed',
-    category: '',
-    workType: '',
-    date: '2026-09-05',
-    time: '',
-    client: '',
-    venue: 'Vandalur',
-    singersCount: 6,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: [],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Varsha', status: 'Available' },
-      { name: 'Serene', status: 'Available' },
-      { name: 'Tanya', status: 'Available' },
-      { name: 'Reuben', status: 'Available' },
-      { name: 'Anuj', status: 'Available' }
-    ]
-  },
-  {
-    id: 11,
-    name: 'ELFE ACT',
-    status: 'confirmed',
-    category: '',
-    workType: '',
-    date: '2026-09-06',
-    time: '',
-    client: '',
-    venue: 'VGP',
-    singersCount: 10,
-    budget: 0,
-    language: '',
-    notes: '',
-    lookId: '',
-    managers: ['Sheena', 'Varsha'],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Tincy', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Sai', status: 'Available' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Sebi', status: 'Available' },
-      { name: 'Reuben', status: 'Available' }
-    ]
-  },
-  // UPCOMING DEMO FIXTURES
-  {
-    id: 12,
-    name: 'Grand Royal Wedding',
-    status: 'enquiry',
-    category: 'Wedding',
-    workType: 'Performance',
-    date: '2026-09-28',
-    time: '19:00',
-    client: 'Rohan & Diya',
-    venue: 'Taj Coromandel',
-    singersCount: 8,
-    budget: 90000,
-    language: 'Tamil',
-    notes: '📌 [Demo Test Fixture] Sample enquiry fixture.',
-    lookId: 'look_black_gold',
-    managers: [],
-    assignedSingers: [],
-    isDemoFixture: true
-  },
-  {
-    id: 13,
-    name: 'Corporate Unplugged Night',
-    status: 'enquiry',
-    category: 'Corporate',
-    workType: 'Performance',
-    date: '2026-09-30',
-    time: '18:30',
-    client: 'Aster Labs',
-    venue: 'ITC Grand Chola',
-    singersCount: 6,
-    budget: 75000,
-    language: 'English',
-    notes: '📌 [Demo Test Fixture] Sample corporate show enquiry.',
-    lookId: 'look_formal_black',
-    managers: ['Varsha'],
-    assignedSingers: [
-      { name: 'Anuj', status: 'Available' },
-      { name: 'Sheena', status: 'Available' }
-    ],
-    isDemoFixture: true
-  },
-  {
-    id: 14,
-    name: 'City Cultural Fest',
-    status: 'confirmed',
-    category: 'Concert',
-    workType: 'Performance',
-    date: '2026-10-03',
-    time: '19:00',
-    client: 'City Arts',
-    venue: 'Museum Theatre',
-    singersCount: 10,
-    budget: 120000,
-    language: 'Mixed',
-    notes: '📌 [Demo Test Fixture] 1 singer unavailable (Sheena). Test Find Replacement workflow.',
-    lookId: 'look_black_gold',
-    managers: ['Sheena'],
-    assignedSingers: [
-      { name: 'Roe', status: 'Available' },
-      { name: 'Chakki', status: 'Available' },
-      { name: 'Tincy', status: 'Available' },
-      { name: 'Vaimu', status: 'Available' },
-      { name: 'Geejay', status: 'Available' },
-      { name: 'Anuj', status: 'Asked' },
-      { name: 'Sai', status: 'Asked' },
-      { name: 'Kevin', status: 'Available' },
-      { name: 'Sheena', status: 'Unavailable' }
-    ],
-    isDemoFixture: true
-  }
-];
-
-// LocalStorage State Management with Migration to v1.5.0
-function getStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (e) {
-    return fallback;
-  }
-}
-
-function setStorage(key, val) {
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-  } catch (e) {
-    console.error('LocalStorage set failed', e);
-  }
-}
-
-let savedVersion = localStorage.getItem('choirProtoVersion');
-
-// Initialize Tags
-let tags = getStorage('choirProtoTags', defaultTags);
-
-// Migrate or load People
-let loadedPeople = getStorage('choirProtoPeople', null);
-if (!loadedPeople || savedVersion !== CURRENT_VERSION) {
-  // Migration logic from v1.4.1 legacy fields to v1.5 tagIds
-  if (loadedPeople && Array.isArray(loadedPeople)) {
-    loadedPeople.forEach(p => {
-      if (!p.tagIds) {
-        const tIds = [];
-        // Membership
-        const nameLower = p.name.toLowerCase();
-        const oldSet = new Set(['roe','anuj','abraham','arnav','anjana','nandhika','bryan','chakki','leon','ritin','reshwin','reuben','serene','sheena','sneha','tanya','tincy','tofer','vaimu','varsha','varshini','pragee']);
-        if (oldSet.has(nameLower)) tIds.push('tag_old_member');
-        else tIds.push('tag_new_member');
-
-        // Languages
-        (p.langs || []).forEach(l => {
-          if (l === 'Tamil') tIds.push('tag_tamil');
-          if (l === 'English') tIds.push('tag_english');
-          if (l === 'Hindi') tIds.push('tag_hindi');
-          if (l === 'Malayalam') tIds.push('tag_malayalam');
-        });
-
-        // Eligibility
-        if (p.type === 'Both') { tIds.push('tag_performance'); tIds.push('tag_recording'); }
-        else if (p.type === 'Live') { tIds.push('tag_performance'); }
-        else if (p.type === 'Recording') { tIds.push('tag_recording'); }
-
-        p.tagIds = Array.from(new Set(tIds));
-      }
-    });
-  } else {
-    loadedPeople = initialPeople;
-  }
-
-  localStorage.setItem('choirProtoVersion', CURRENT_VERSION);
-  localStorage.setItem('choirProtoTags', JSON.stringify(tags));
-  localStorage.setItem('choirProtoPeople', JSON.stringify(loadedPeople));
-  localStorage.setItem('choirProtoEvents', JSON.stringify(initialEvents));
-  localStorage.setItem('choirProtoLooks', JSON.stringify(initialLooks));
-}
-
-let people = getStorage('choirProtoPeople', initialPeople);
-let events = getStorage('choirProtoEvents', initialEvents);
-let looks = getStorage('choirProtoLooks', initialLooks);
-
-// Global State Variables
 let selectedRosterTagIds = [];
 let currentStatsPeriod = 'month'; // 'month' | 'year' | 'all'
 let newStatus = 'enquiry';
 let pickedWorkType = 'Unspecified';
 let editEventId = null;
 let detailEventId = null;
-let tempAssignedSingers = null;
-let tempManagers = null;
-let replaceTargetSingerName = null;
+let tempAssignedSingers = null; // Array of { personId, status }
+let tempManagers = null;        // Array of personId
+let replaceTargetPersonId = null;
 
 // Helpers
 function money(v) {
@@ -624,9 +52,10 @@ function getTagGroupPillClass(group) {
 function filterPeopleByTags(peopleList, selectedTagIds) {
   if (!selectedTagIds || selectedTagIds.length === 0) return peopleList;
 
+  const activeTags = tagService.getAll();
   const groupedTagIds = {};
   selectedTagIds.forEach(id => {
-    const t = tags.find(x => x.id === id);
+    const t = activeTags.find(x => x.id === id);
     if (t) {
       if (!groupedTagIds[t.group]) groupedTagIds[t.group] = [];
       groupedTagIds[t.group].push(id);
@@ -639,30 +68,6 @@ function filterPeopleByTags(peopleList, selectedTagIds) {
       return allowedInGroup.some(tagId => (p.tagIds || []).includes(tagId));
     });
   });
-}
-
-// Derive Show History for People / Singers dynamically from events
-function getSingerHistory(personName) {
-  const nameLower = personName.toLowerCase();
-  const pastEvents = events.filter(e => {
-    const isAssigned = (e.assignedSingers || []).some(s => s.name.toLowerCase() === nameLower) ||
-                       (e.managers || []).some(m => m.toLowerCase() === nameLower);
-    return isAssigned;
-  }).sort((a, b) => b.date.localeCompare(a.date));
-
-  const totalShows = pastEvents.length;
-  const lastShow = pastEvents.length ? pastEvents[0] : null;
-
-  return {
-    totalShows,
-    lastShowDate: lastShow ? dateParts(lastShow.date).full : 'None',
-    recentShows: pastEvents.slice(0, 4).map(e => ({
-      date: dateParts(e.date).full,
-      name: e.name,
-      category: e.category || '—',
-      workType: e.workType || 'Unspecified'
-    }))
-  };
 }
 
 // Navigation
@@ -684,6 +89,11 @@ function go(id) {
 function eventCard(e) {
   const d = dateParts(e.date);
   const look = looks.find(l => l.id === e.lookId);
+  const venueObj = getVenueById(e.venueId);
+  const venueName = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
+  const evtTypeObj = getEventTypeById(e.eventTypeId);
+  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : (e.workType || '');
+
   const availConfirmed = (e.assignedSingers || []).filter(s => s.status === 'Available').length;
   const unavailableCount = (e.assignedSingers || []).filter(s => s.status === 'Unavailable').length;
   const moneyText = money(e.budget);
@@ -694,10 +104,10 @@ function eventCard(e) {
         <div class="datebox"><span>${d.mon}</span><b>${d.day}</b></div>
         <div>
           <div class="title">${e.name} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</div>
-          <div class="muted">${e.venue || 'Venue TBC'} ${e.category ? '· ' + e.category : ''}</div>
+          <div class="muted">${venueName} ${e.category ? '· ' + e.category : ''}</div>
           <div class="tagrow">
             <span class="pill ${e.status}">${e.status === 'confirmed' ? 'Confirmed' : 'Enquiry'}</span>
-            ${e.workType ? `<span class="pill ${workTypePillClass(e.workType)}">${e.workType}</span>` : ''}
+            ${evtTypeName ? `<span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span>` : ''}
             <span class="pill">${availConfirmed}/${e.singersCount} singers</span>
             ${unavailableCount > 0 ? `<span class="pill avail-unavailable">⚠️ ${unavailableCount} unavailable</span>` : ''}
             ${look ? `<span class="pill" style="background:#f1ece1">🎨 ${look.name}</span>` : ''}
@@ -711,6 +121,11 @@ function eventCard(e) {
 
 // Main Render Function
 function render() {
+  // Sync state from services
+  people = peopleService.getAll();
+  events = eventService.getAll();
+  tags = tagService.getAll();
+
   const now = new Date();
   const curMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -758,6 +173,8 @@ function renderNeedsAttention() {
     const availCount = assigned.filter(s => s.status === 'Available').length;
     const unavailCount = assigned.filter(s => s.status === 'Unavailable').length;
     const needed = Math.max(0, e.singersCount - availCount);
+    const venueObj = getVenueById(e.venueId);
+    const venueName = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
 
     let reasonText = '';
     let btnText = 'Manage Lineup';
@@ -777,7 +194,7 @@ function renderNeedsAttention() {
         <div class="row between">
           <div>
             <div class="title">${e.name}</div>
-            <div class="muted">${dateParts(e.date).full} · ${e.venue || 'Venue TBC'}</div>
+            <div class="muted">${dateParts(e.date).full} · ${venueName}</div>
             <div class="tiny" style="margin-top:4px; font-weight:700; color:${isDanger ? '#8a302e' : '#6d5612'}">${reasonText}</div>
           </div>
           <button class="btn ${isDanger ? 'danger' : 'warning'} small" onclick="openDetail(${e.id})">${btnText}</button>
@@ -824,13 +241,14 @@ function renderTagFilterUI(containerId, activeTagIds, toggleTagFnName, clearFnNa
   const container = document.getElementById(containerId);
   if (!container) return;
 
+  const activeTags = tagService.getAll();
   const groups = ['membership', 'language', 'eligibility', 'custom'];
   const groupTitles = { membership: 'Membership', language: 'Language', eligibility: 'Eligibility', custom: 'Custom Tags' };
 
   let html = `<div class="filter-box">`;
   
   groups.forEach(gKey => {
-    const groupTags = tags.filter(t => t.active && t.group === gKey);
+    const groupTags = activeTags.filter(t => t.active && t.group === gKey);
     if (!groupTags.length) return;
 
     html += `<div class="filter-group-title">${groupTitles[gKey]}</div><div class="tagrow">`;
@@ -870,11 +288,11 @@ function clearRosterFilterTags() {
 // Singers Screen Render
 function renderSingers() {
   const q = (document.getElementById('singerSearch')?.value || '').toLowerCase();
-  
-  // Render tag filter bar
+  people = peopleService.getAll();
+  tags = tagService.getAll();
+
   renderTagFilterUI('singerFilterBar', selectedRosterTagIds, 'toggleRosterFilterTag', 'clearRosterFilterTags');
 
-  // Filter people using text search & tag filter engine
   const tagFiltered = filterPeopleByTags(people, selectedRosterTagIds);
   const filtered = tagFiltered.filter(p => {
     if (q && !p.name.toLowerCase().includes(q)) return false;
@@ -885,8 +303,8 @@ function renderSingers() {
   if (!listEl) return;
 
   listEl.innerHTML = filtered.length ? filtered.map(p => {
-    const history = getSingerHistory(p.name);
-    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    const history = getSingerHistory(p.id);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
 
     return `
       <div class="card compact">
@@ -921,7 +339,7 @@ function renderSingers() {
   }).join('') : '<div class="empty">No singers found matching filters.</div>';
 }
 
-// STATISTICS TAB ENGINE (Excludes Demo Fixtures)
+// STATISTICS TAB ENGINE (Excludes Demo Fixtures & Manager-only Participation)
 function setStatsPeriod(period) {
   currentStatsPeriod = period;
   renderStatistics();
@@ -931,7 +349,8 @@ function renderStatistics() {
   const container = document.getElementById('statisticsBody');
   if (!container) return;
 
-  // Real events only (EXCLUDING demo fixtures)
+  people = peopleService.getAll();
+  events = eventService.getAll();
   const realEvents = events.filter(e => !e.isDemoFixture);
   const now = new Date();
   const curYear = now.getFullYear();
@@ -953,13 +372,13 @@ function renderStatistics() {
   const confirmedCount = filteredEvents.filter(e => e.status === 'confirmed').length;
   const enquiryCount = filteredEvents.filter(e => e.status === 'enquiry').length;
 
+  // CORRECT: Unique SINGERS used (EXCLUDING manager-only appearances!)
   const uniqueSingersUsed = new Set();
   let totalSingersNeededSum = 0;
 
   filteredEvents.forEach(e => {
     totalSingersNeededSum += (e.singersCount || 0);
-    (e.assignedSingers || []).forEach(s => uniqueSingersUsed.add(s.name.toLowerCase()));
-    (e.managers || []).forEach(m => uniqueSingersUsed.add(m.toLowerCase()));
+    (e.assignedSingers || []).forEach(s => uniqueSingersUsed.add(s.personId));
   });
 
   const activeRosterCount = people.filter(p => p.active !== false).length;
@@ -969,7 +388,8 @@ function renderStatistics() {
   // Work Type Breakdown
   const workTypeCounts = { Performance: 0, Recording: 0, Rehearsal: 0, Shoot: 0, Soundcheck: 0, Unspecified: 0 };
   filteredEvents.forEach(e => {
-    const wt = e.workType || 'Unspecified';
+    const evtTypeObj = getEventTypeById(e.eventTypeId);
+    const wt = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : 'Unspecified';
     if (workTypeCounts[wt] !== undefined) workTypeCounts[wt]++;
     else workTypeCounts.Unspecified++;
   });
@@ -982,19 +402,15 @@ function renderStatistics() {
     else categoryCounts.Unspecified++;
   });
 
-  // Singer Show Counts in Selected Period
+  // CORRECT: Singer Show Counts in Selected Period (EXCLUDING manager-only participation)
   const personShowCounts = {};
-  people.forEach(p => { personShowCounts[p.name] = 0; });
+  people.forEach(p => { personShowCounts[p.id] = 0; });
 
   filteredEvents.forEach(e => {
-    const assignedNames = new Set([
-      ...(e.assignedSingers || []).map(s => s.name),
-      ...(e.managers || [])
-    ]);
-    assignedNames.forEach(name => {
-      const match = people.find(p => p.name.toLowerCase() === name.toLowerCase());
-      if (match) {
-        personShowCounts[match.name] = (personShowCounts[match.name] || 0) + 1;
+    const assignedIds = new Set((e.assignedSingers || []).map(s => s.personId));
+    assignedIds.forEach(pId => {
+      if (personShowCounts[pId] !== undefined) {
+        personShowCounts[pId]++;
       }
     });
   });
@@ -1002,26 +418,22 @@ function renderStatistics() {
   // Rotation Buckets
   const bucket0 = [], bucket1_2 = [], bucket3_5 = [], bucket6Plus = [];
   people.forEach(p => {
-    const cnt = personShowCounts[p.name] || 0;
+    const cnt = personShowCounts[p.id] || 0;
     if (cnt === 0) bucket0.push(p);
     else if (cnt <= 2) bucket1_2.push(p);
     else if (cnt <= 5) bucket3_5.push(p);
     else bucket6Plus.push(p);
   });
 
-  // Most Active & Zero Show
-  const sortedByActivity = [...people].sort((a, b) => (personShowCounts[b.name] || 0) - (personShowCounts[a.name] || 0));
-  const mostActiveList = sortedByActivity.slice(0, 5);
-
   // Membership Comparison
   const oldMembers = people.filter(p => (p.tagIds || []).includes('tag_old_member'));
   const newMembers = people.filter(p => (p.tagIds || []).includes('tag_new_member'));
 
-  const oldUsed = oldMembers.filter(p => (personShowCounts[p.name] || 0) > 0);
-  const oldZero = oldMembers.filter(p => (personShowCounts[p.name] || 0) === 0);
+  const oldUsed = oldMembers.filter(p => (personShowCounts[p.id] || 0) > 0);
+  const oldZero = oldMembers.filter(p => (personShowCounts[p.id] || 0) === 0);
 
-  const newUsed = newMembers.filter(p => (personShowCounts[p.name] || 0) > 0);
-  const newZero = newMembers.filter(p => (personShowCounts[p.name] || 0) === 0);
+  const newUsed = newMembers.filter(p => (personShowCounts[p.id] || 0) > 0);
+  const newZero = newMembers.filter(p => (personShowCounts[p.id] || 0) === 0);
 
   // Roster Coverage (Active Roster Combinations)
   const coverageCombos = [
@@ -1135,17 +547,16 @@ function getBucketSingers(minShows, maxShows = minShows) {
   else if (currentStatsPeriod === 'year') filteredEvents = realEvents.filter(e => e.date.startsWith(String(curYear)));
 
   const counts = {};
-  people.forEach(p => counts[p.name] = 0);
+  people.forEach(p => counts[p.id] = 0);
   filteredEvents.forEach(e => {
-    const assigned = new Set([...(e.assignedSingers || []).map(s => s.name), ...(e.managers || [])]);
-    assigned.forEach(name => {
-      const match = people.find(p => p.name.toLowerCase() === name.toLowerCase());
-      if (match) counts[match.name]++;
+    const assignedIds = new Set((e.assignedSingers || []).map(s => s.personId));
+    assignedIds.forEach(pId => {
+      if (counts[pId] !== undefined) counts[pId]++;
     });
   });
 
   return people.filter(p => {
-    const cnt = counts[p.name] || 0;
+    const cnt = counts[p.id] || 0;
     return cnt >= minShows && cnt <= maxShows;
   });
 }
@@ -1170,8 +581,8 @@ function openStatsDrilldown(title, subtitle, personList) {
   if (!container) return;
 
   container.innerHTML = personList.length ? personList.map(p => {
-    const history = getSingerHistory(p.name);
-    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    const history = getSingerHistory(p.id);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
 
     return `
       <div class="card compact">
@@ -1197,7 +608,7 @@ function openStatsDrilldown(title, subtitle, personList) {
 // Event Details & Lineup Modal
 function openDetail(id) {
   detailEventId = id;
-  const e = events.find(x => x.id === id);
+  const e = eventService.getById(id);
   if (!e) return;
 
   tempAssignedSingers = JSON.parse(JSON.stringify(e.assignedSingers || []));
@@ -1208,11 +619,20 @@ function openDetail(id) {
 }
 
 function renderDetailModal() {
-  const e = events.find(x => x.id === detailEventId);
+  const e = eventService.getById(detailEventId);
   if (!e) return;
 
   const d = dateParts(e.date);
   const look = looks.find(l => l.id === e.lookId);
+
+  const venueObj = getVenueById(e.venueId);
+  const venueName = venueObj ? venueObj.name : (e.venue || 'Venue TBC');
+
+  const clientObj = getClientById(e.clientId);
+  const clientName = clientObj ? clientObj.name : (e.client || '—');
+
+  const evtTypeObj = getEventTypeById(e.eventTypeId);
+  const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : (e.workType || '—');
 
   const assigned = tempAssignedSingers || [];
   const managers = tempManagers || [];
@@ -1234,7 +654,7 @@ function renderDetailModal() {
       <div>
         <div class="eyebrow">${e.status === 'confirmed' ? 'Confirmed Show' : 'Enquiry'}</div>
         <h2>${e.name} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</h2>
-        <div class="sub">${d.full} · ${e.venue || 'Venue TBC'}</div>
+        <div class="sub">${d.full} · ${venueName}</div>
       </div>
       <button class="btn ghost small" onclick="closeModalSafe('detailModal')">Close</button>
     </div>
@@ -1247,10 +667,10 @@ function renderDetailModal() {
     <div class="card compact" style="margin-top:14px">
       <div class="row between"><span class="muted">Category</span><b>${e.category || '—'}</b></div>
       <div class="row between" style="margin-top:6px">
-        <span class="muted">Work Type</span>
-        <b>${e.workType ? `<span class="pill ${workTypePillClass(e.workType)}">${e.workType}</span>` : '—'}</b>
+        <span class="muted">Event Type</span>
+        <b>${evtTypeName !== '—' ? `<span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span>` : '—'}</b>
       </div>
-      <div class="row between" style="margin-top:6px"><span class="muted">Client</span><b>${e.client || '—'}</b></div>
+      <div class="row between" style="margin-top:6px"><span class="muted">Client</span><b>${clientName}</b></div>
       <div class="row between" style="margin-top:6px"><span class="muted">Show Time</span><b>${e.time || '—'}</b></div>
       <div class="row between" style="margin-top:6px"><span class="muted">Budget</span><b>${money(e.budget)}</b></div>
       <div class="row between" style="margin-top:6px"><span class="muted">Singers Needed</span><b>${e.singersCount} singers</b></div>
@@ -1271,15 +691,19 @@ function renderDetailModal() {
         <button class="btn soft small" onclick="openAddManagerModal()">+ Add Manager</button>
       </div>
       <div class="card compact">
-        ${managers.length ? managers.map(m => `
-          <div class="row between" style="padding:6px 0">
-            <div class="person">
-              <div class="avatar manager-avatar">${m[0]}</div>
-              <div><b>${m}</b> <span class="tiny">(Manager)</span></div>
+        ${managers.length ? managers.map(mId => {
+          const mPerson = getPersonById(mId);
+          const mName = mPerson ? mPerson.name : 'Unknown';
+          return `
+            <div class="row between" style="padding:6px 0">
+              <div class="person">
+                <div class="avatar manager-avatar">${mName[0]}</div>
+                <div><b>${mName}</b> <span class="tiny">(Manager)</span></div>
+              </div>
+              <button class="btn danger small" onclick="removeManager('${mId}')">Remove</button>
             </div>
-            <button class="btn danger small" onclick="removeManager('${m}')">Remove</button>
-          </div>
-        `).join('') : '<div class="empty" style="padding:10px">No managers assigned.</div>'}
+          `;
+        }).join('') : '<div class="empty" style="padding:10px">No managers assigned.</div>'}
       </div>
 
       <!-- Singers Lineup Section -->
@@ -1306,33 +730,37 @@ function renderDetailModal() {
       </div>
 
       <div class="card compact" style="padding:0">
-        ${assigned.length ? assigned.map(s => `
-          <div style="padding:12px; border-bottom:1px solid var(--line)">
-            <div class="row between">
-              <div class="person">
-                <div class="avatar">${s.name[0]}</div>
-                <div>
-                  <div class="title">${s.name}</div>
-                  <div class="tiny">Status:</div>
+        ${assigned.length ? assigned.map(s => {
+          const pObj = getPersonById(s.personId);
+          const sName = pObj ? pObj.name : 'Unknown';
+          return `
+            <div style="padding:12px; border-bottom:1px solid var(--line)">
+              <div class="row between">
+                <div class="person">
+                  <div class="avatar">${sName[0]}</div>
+                  <div>
+                    <div class="title">${sName}</div>
+                    <div class="tiny">Status:</div>
+                  </div>
+                </div>
+                <div class="row" style="gap:6px">
+                  <select class="avail-select" onchange="changeSingerStatus('${s.personId}', this.value)">
+                    <option value="Not asked" ${s.status === 'Not asked' ? 'selected' : ''}>Not asked</option>
+                    <option value="Asked" ${s.status === 'Asked' ? 'selected' : ''}>Asked</option>
+                    <option value="Available" ${s.status === 'Available' ? 'selected' : ''}>Available</option>
+                    <option value="Unavailable" ${s.status === 'Unavailable' ? 'selected' : ''}>Unavailable</option>
+                  </select>
+                  <button class="btn danger small" onclick="removeSingerFromLineup('${s.personId}')">Remove</button>
                 </div>
               </div>
-              <div class="row" style="gap:6px">
-                <select class="avail-select" onchange="changeSingerStatus('${s.name}', this.value)">
-                  <option value="Not asked" ${s.status === 'Not asked' ? 'selected' : ''}>Not asked</option>
-                  <option value="Asked" ${s.status === 'Asked' ? 'selected' : ''}>Asked</option>
-                  <option value="Available" ${s.status === 'Available' ? 'selected' : ''}>Available</option>
-                  <option value="Unavailable" ${s.status === 'Unavailable' ? 'selected' : ''}>Unavailable</option>
-                </select>
-                <button class="btn danger small" onclick="removeSingerFromLineup('${s.name}')">Remove</button>
-              </div>
+              ${s.status === 'Unavailable' ? `
+                <div style="margin-top:8px; text-align:right">
+                  <button class="btn warning small" onclick="openFindReplacementModal('${s.personId}')">🔄 Find Replacement for ${sName}</button>
+                </div>
+              ` : ''}
             </div>
-            ${s.status === 'Unavailable' ? `
-              <div style="margin-top:8px; text-align:right">
-                <button class="btn warning small" onclick="openFindReplacementModal('${s.name}')">🔄 Find Replacement for ${s.name}</button>
-              </div>
-            ` : ''}
-          </div>
-        `).join('') : '<div class="empty">No singers assigned to lineup yet.</div>'}
+          `;
+        }).join('') : '<div class="empty">No singers assigned to lineup yet.</div>'}
       </div>
 
       <div class="row" style="margin-top:14px; gap:8px;">
@@ -1344,47 +772,41 @@ function renderDetailModal() {
 }
 
 function confirmEvent(id) {
-  const e = events.find(x => x.id === id);
-  if (!e) return;
-  e.status = 'confirmed';
-  setStorage('choirProtoEvents', events);
+  eventService.update(id, { status: 'confirmed' });
   render();
   openDetail(id);
 }
 
-function changeSingerStatus(name, newStatus) {
-  const item = (tempAssignedSingers || []).find(s => s.name === name);
+function changeSingerStatus(personId, newStatus) {
+  const item = (tempAssignedSingers || []).find(s => s.personId === personId);
   if (item) {
     item.status = newStatus;
     renderDetailModal();
   }
 }
 
-function removeSingerFromLineup(name) {
-  tempAssignedSingers = (tempAssignedSingers || []).filter(s => s.name !== name);
+function removeSingerFromLineup(personId) {
+  tempAssignedSingers = (tempAssignedSingers || []).filter(s => s.personId !== personId);
   renderDetailModal();
 }
 
-function removeManager(name) {
-  tempManagers = (tempManagers || []).filter(m => m !== name);
+function removeManager(personId) {
+  tempManagers = (tempManagers || []).filter(m => m !== personId);
   renderDetailModal();
 }
 
 function saveLineupChanges() {
-  const e = events.find(x => x.id === detailEventId);
-  if (!e) return;
-
-  e.assignedSingers = JSON.parse(JSON.stringify(tempAssignedSingers));
-  e.managers = JSON.parse(JSON.stringify(tempManagers));
-
-  setStorage('choirProtoEvents', events);
+  eventService.update(detailEventId, {
+    assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
+    managers: JSON.parse(JSON.stringify(tempManagers))
+  });
   render();
   renderDetailModal();
 }
 
 function hasUnsavedChanges() {
   if (!detailEventId) return false;
-  const e = events.find(x => x.id === detailEventId);
+  const e = eventService.getById(detailEventId);
   if (!e) return false;
 
   return (JSON.stringify(e.assignedSingers || []) !== JSON.stringify(tempAssignedSingers)) ||
@@ -1406,7 +828,7 @@ function closeModal(id) {
   if (el) el.classList.remove('open');
 }
 
-// Add Singer Modal to Lineup (With Shared Tag Filtering)
+// Add Singer Modal to Lineup (With Shared Tag Filtering & Default 'Not asked' Status)
 let assignModalTagIds = [];
 function openAddSingerModal() {
   assignModalTagIds = [];
@@ -1426,8 +848,8 @@ function clearAssignModalTags() {
 }
 
 function renderAssignModalList() {
-  const assignedNames = (tempAssignedSingers || []).map(s => s.name);
-  const unassigned = people.filter(p => !assignedNames.includes(p.name));
+  const assignedPersonIds = (tempAssignedSingers || []).map(s => s.personId);
+  const unassigned = peopleService.getAll().filter(p => !assignedPersonIds.includes(p.id));
   const filtered = filterPeopleByTags(unassigned, assignModalTagIds);
 
   const listEl = document.getElementById('assignList');
@@ -1436,7 +858,7 @@ function renderAssignModalList() {
   renderTagFilterUI('assignFilterBar', assignModalTagIds, 'toggleAssignModalTag', 'clearAssignModalTags');
 
   listEl.innerHTML = filtered.length ? filtered.map(p => {
-    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
     return `
       <div class="card compact replacement">
         <div class="person">
@@ -1447,16 +869,17 @@ function renderAssignModalList() {
               ${pTags.map(t => `<span class="pill ${getTagGroupPillClass(t.group)}">${t.name}</span>`).join('')}
             </div>
           </div>
-          <button class="btn soft small" onclick="addSingerToLineup('${p.name}')">+ Add</button>
+          <button class="btn soft small" onclick="addSingerToLineup('${p.id}')">+ Add</button>
         </div>
       </div>
     `;
   }).join('') : '<div class="empty">No matching candidates.</div>';
 }
 
-function addSingerToLineup(name) {
-  if (!(tempAssignedSingers || []).some(s => s.name === name)) {
-    tempAssignedSingers.push({ name: name, status: 'Not asked' });
+// CRITICAL FIX: Default status for manual add is 'Not asked'
+function addSingerToLineup(personId) {
+  if (!(tempAssignedSingers || []).some(s => s.personId === personId)) {
+    tempAssignedSingers.push({ personId: personId, status: 'Not asked' });
     renderDetailModal();
   }
   closeModal('assignModal');
@@ -1465,7 +888,7 @@ function addSingerToLineup(name) {
 // Add Manager Modal
 function openAddManagerModal() {
   const currentManagers = tempManagers || [];
-  const candidates = people.filter(p => !currentManagers.includes(p.name));
+  const candidates = peopleService.getAll().filter(p => !currentManagers.includes(p.id));
 
   const container = document.getElementById('assignList');
   if (!container) return;
@@ -1480,7 +903,7 @@ function openAddManagerModal() {
           <div class="title">${p.name}</div>
           <div class="muted">Manager candidate</div>
         </div>
-        <button class="btn soft small" onclick="addManagerToEvent('${p.name}')">+ Add Manager</button>
+        <button class="btn soft small" onclick="addManagerToEvent('${p.id}')">+ Add Manager</button>
       </div>
     </div>
   `).join('');
@@ -1488,9 +911,9 @@ function openAddManagerModal() {
   document.getElementById('assignModal').classList.add('open');
 }
 
-function addManagerToEvent(name) {
-  if (!(tempManagers || []).includes(name)) {
-    tempManagers.push(name);
+function addManagerToEvent(personId) {
+  if (!(tempManagers || []).includes(personId)) {
+    tempManagers.push(personId);
     renderDetailModal();
   }
   closeModal('assignModal');
@@ -1498,13 +921,18 @@ function addManagerToEvent(name) {
 
 // Find Replacement Modal
 let replaceModalTagIds = [];
-function openFindReplacementModal(targetSingerName) {
-  replaceTargetSingerName = targetSingerName;
+function openFindReplacementModal(targetPersonId) {
+  replaceTargetPersonId = targetPersonId;
   replaceModalTagIds = [];
-  const e = events.find(x => x.id === detailEventId);
+  const e = eventService.getById(detailEventId);
   if (!e) return;
 
-  document.getElementById('replaceNotice').innerHTML = `Finding candidate replacement for <b>${targetSingerName}</b> for <b>${e.name}</b> (${e.workType || 'Unspecified'}, ${e.language || 'Unspecified'}).`;
+  const targetPerson = getPersonById(targetPersonId);
+  const targetName = targetPerson ? targetPerson.name : 'Singer';
+  const evtType = getEventTypeById(e.eventTypeId);
+  const evtTypeName = (evtType && evtType.id !== 'event_type_unspecified') ? evtType.name : 'Unspecified';
+
+  document.getElementById('replaceNotice').innerHTML = `Finding candidate replacement for <b>${targetName}</b> for <b>${e.name}</b> (${evtTypeName}, ${e.language || 'Unspecified'}).`;
 
   renderReplacementModalList();
   document.getElementById('replaceModal').classList.add('open');
@@ -1522,13 +950,13 @@ function clearReplaceModalTags() {
 }
 
 function renderReplacementModalList() {
-  const currentAssignedNames = (tempAssignedSingers || []).map(s => s.name);
-  const candidates = people.filter(p => !currentAssignedNames.includes(p.name));
+  const currentAssignedIds = (tempAssignedSingers || []).map(s => s.personId);
+  const candidates = peopleService.getAll().filter(p => !currentAssignedIds.includes(p.id));
   const filtered = filterPeopleByTags(candidates, replaceModalTagIds);
 
   filtered.sort((a, b) => {
-    const ha = getSingerHistory(a.name);
-    const hb = getSingerHistory(b.name);
+    const ha = getSingerHistory(a.id);
+    const hb = getSingerHistory(b.id);
     return ha.totalShows - hb.totalShows;
   });
 
@@ -1538,8 +966,8 @@ function renderReplacementModalList() {
   renderTagFilterUI('replaceFilterBar', replaceModalTagIds, 'toggleReplaceModalTag', 'clearReplaceModalTags');
 
   listEl.innerHTML = filtered.length ? filtered.map(p => {
-    const h = getSingerHistory(p.name);
-    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    const h = getSingerHistory(p.id);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
 
     return `
       <div class="card compact replacement">
@@ -1552,17 +980,18 @@ function renderReplacementModalList() {
             </div>
             <div class="tiny" style="color:var(--brand); font-weight:700; margin-top:3px">📊 ${h.totalShows} shows · Last: ${h.lastShowDate}</div>
           </div>
-          <button class="btn soft small" onclick="chooseReplacement('${p.name}')">Choose</button>
+          <button class="btn soft small" onclick="chooseReplacement('${p.id}')">Choose</button>
         </div>
       </div>
     `;
   }).join('') : '<div class="empty">No matching replacement candidates.</div>';
 }
 
-function chooseReplacement(newSingerName) {
-  if (replaceTargetSingerName && tempAssignedSingers) {
-    tempAssignedSingers = tempAssignedSingers.filter(s => s.name !== replaceTargetSingerName);
-    tempAssignedSingers.push({ name: newSingerName, status: 'Available' });
+// CRITICAL FIX: Default status for Replacement selection is 'Not asked'
+function chooseReplacement(newPersonId) {
+  if (replaceTargetPersonId && tempAssignedSingers) {
+    tempAssignedSingers = tempAssignedSingers.filter(s => s.personId !== replaceTargetPersonId);
+    tempAssignedSingers.push({ personId: newPersonId, status: 'Not asked' });
     renderDetailModal();
     closeModal('replaceModal');
   }
@@ -1570,25 +999,24 @@ function chooseReplacement(newSingerName) {
 
 // Suggest Lineup Modal
 function openSuggestModal() {
-  const e = events.find(x => x.id === detailEventId);
+  const e = eventService.getById(detailEventId);
   if (!e) return;
 
-  const assignedNames = (tempAssignedSingers || []).map(s => s.name);
-  const unassigned = people.filter(p => !assignedNames.includes(p.name));
+  const assignedIds = (tempAssignedSingers || []).map(s => s.personId);
+  const unassigned = peopleService.getAll().filter(p => !assignedIds.includes(p.id));
 
   const scored = unassigned.map(p => {
-    const h = getSingerHistory(p.name);
-    const pTags = (p.tagIds || []).map(id => tags.find(t => t.id === id)).filter(Boolean);
+    const h = getSingerHistory(p.id);
+    const pTags = (p.tagIds || []).map(id => tagService.getById(id)).filter(Boolean);
     let matchReasons = [];
 
-    // Language match via tag or event property
     if (e.language && (pTags.some(t => t.name === e.language) || e.language === 'Mixed')) {
       matchReasons.push(`Matches ${e.language}`);
     }
 
-    // Work type suitability match
-    if (e.workType && pTags.some(t => t.name === e.workType || t.name === 'Both')) {
-      matchReasons.push(`Eligible for ${e.workType}`);
+    const evtTypeObj = getEventTypeById(e.eventTypeId);
+    if (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified' && pTags.some(t => t.name === evtTypeObj.name || t.name === 'Both')) {
+      matchReasons.push(`Eligible for ${evtTypeObj.name}`);
     }
 
     matchReasons.push(`${h.totalShows} recent shows`);
@@ -1618,7 +1046,7 @@ function openSuggestModal() {
           </div>
           <div class="tiny" style="margin-top:2px">${s.reasons.join(' · ')}</div>
         </div>
-        <button class="btn soft small" onclick="addSuggestedSinger('${s.person.name}')">+ Assign</button>
+        <button class="btn soft small" onclick="addSuggestedSinger('${s.person.id}')">+ Assign</button>
       </div>
     </div>
   `).join('');
@@ -1626,9 +1054,10 @@ function openSuggestModal() {
   document.getElementById('suggestModal').classList.add('open');
 }
 
-function addSuggestedSinger(name) {
-  if (!(tempAssignedSingers || []).some(s => s.name === name)) {
-    tempAssignedSingers.push({ name: name, status: 'Available' });
+// CRITICAL FIX: Default status for Suggest Lineup addition is 'Not asked'
+function addSuggestedSinger(personId) {
+  if (!(tempAssignedSingers || []).some(s => s.personId === personId)) {
+    tempAssignedSingers.push({ personId: personId, status: 'Not asked' });
     renderDetailModal();
   }
   closeModal('suggestModal');
@@ -1664,12 +1093,17 @@ function openEditEvent(id) {
   if (hasUnsavedChanges()) {
     if (!confirm('You have unsaved lineup changes. Discard them to edit event details?')) return;
   }
-  const e = events.find(x => x.id === id);
+  const e = eventService.getById(id);
   if (!e) return;
 
   editEventId = id;
   newStatus = e.status;
-  pickedWorkType = e.workType || 'Unspecified';
+
+  const evtTypeObj = getEventTypeById(e.eventTypeId);
+  pickedWorkType = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : 'Unspecified';
+
+  const clientObj = getClientById(e.clientId);
+  const venueObj = getVenueById(e.venueId);
 
   document.getElementById('newEyebrow').textContent = 'Edit ' + newStatus;
   document.getElementById('newTitle').textContent = 'Edit Event Details';
@@ -1678,21 +1112,21 @@ function openEditEvent(id) {
   document.getElementById('fCategory').value = e.category || '';
   document.getElementById('fDate').value = e.date || '';
   document.getElementById('fTime').value = e.time || '';
-  document.getElementById('fClient').value = e.client || '';
-  document.getElementById('fVenue').value = e.venue || '';
+  document.getElementById('fClient').value = clientObj ? clientObj.name : (e.client || '');
+  document.getElementById('fVenue').value = venueObj ? venueObj.name : (e.venue || '');
   document.getElementById('fSingers').value = e.singersCount || 1;
   document.getElementById('fBudget').value = e.budget ? e.budget : '';
   document.getElementById('fLanguage').value = e.language || '';
   document.getElementById('fNotes').value = e.notes || '';
 
   const standardTypes = ['Unspecified', 'Performance', 'Recording', 'Rehearsal', 'Shoot', 'Soundcheck'];
-  if (standardTypes.includes(e.workType || 'Unspecified')) {
-    updateWorkTypeButtons(e.workType || 'Unspecified');
+  if (standardTypes.includes(pickedWorkType)) {
+    updateWorkTypeButtons(pickedWorkType);
     document.getElementById('fCustomWorkGroup').style.display = 'none';
   } else {
     updateWorkTypeButtons('Custom');
     document.getElementById('fCustomWorkGroup').style.display = 'block';
-    document.getElementById('fCustomWorkType').value = e.workType;
+    document.getElementById('fCustomWorkType').value = pickedWorkType;
   }
 
   populateLookSelect(e.lookId || '');
@@ -1732,29 +1166,33 @@ function saveEvent() {
   const category = document.getElementById('fCategory').value;
   const date = document.getElementById('fDate').value;
   const time = document.getElementById('fTime').value;
-  const client = document.getElementById('fClient').value;
-  const venue = document.getElementById('fVenue').value;
+  const clientText = document.getElementById('fClient').value;
+  const venueText = document.getElementById('fVenue').value;
   const singersCount = Number(document.getElementById('fSingers').value || 1);
   const budget = document.getElementById('fBudget').value ? Number(document.getElementById('fBudget').value) : 0;
   const language = document.getElementById('fLanguage').value;
   const notes = document.getElementById('fNotes').value;
   const lookId = document.getElementById('fLook').value;
 
-  let finalWorkType = pickedWorkType;
-  if (pickedWorkType === 'Unspecified') {
-    finalWorkType = '';
-  } else if (pickedWorkType === 'Custom') {
-    finalWorkType = document.getElementById('fCustomWorkType').value.trim() || 'Custom';
-  }
+  // Resolve Client & Venue entities
+  const clientEntity = clientService.getOrCreateByName(clientText);
+  const venueEntity = venueService.getOrCreateByName(venueText);
+
+  // Resolve EventType entity
+  let finalWorkTypeStr = pickedWorkType;
+  if (pickedWorkType === 'Unspecified') finalWorkTypeStr = '';
+  else if (pickedWorkType === 'Custom') finalWorkTypeStr = document.getElementById('fCustomWorkType').value.trim();
+
+  const evtTypeEntity = eventTypeService.getByWorkType(finalWorkTypeStr);
 
   const data = {
     name,
     category,
-    workType: finalWorkType,
+    eventTypeId: evtTypeEntity ? evtTypeEntity.id : 'event_type_unspecified',
     date,
     time,
-    client,
-    venue,
+    clientId: clientEntity ? clientEntity.id : null,
+    venueId: venueEntity ? venueEntity.id : null,
     singersCount,
     budget,
     language,
@@ -1763,11 +1201,9 @@ function saveEvent() {
   };
 
   if (editEventId) {
-    const e = events.find(x => x.id === editEventId);
-    Object.assign(e, data);
+    eventService.update(editEventId, data);
   } else {
-    events.push({
-      id: Date.now(),
+    eventService.create({
       status: newStatus,
       managers: [],
       assignedSingers: [],
@@ -1775,7 +1211,6 @@ function saveEvent() {
     });
   }
 
-  setStorage('choirProtoEvents', events);
   closeModal('newModal');
   render();
 
@@ -1788,8 +1223,7 @@ function saveEvent() {
 
 function deleteEvent(id) {
   if (confirm('Are you sure you want to delete this event?')) {
-    events = events.filter(e => e.id !== id);
-    setStorage('choirProtoEvents', events);
+    eventService.delete(id);
     closeModal('detailModal');
     render();
   }
@@ -1811,7 +1245,7 @@ function openNewSinger() {
 }
 
 function openEditSingerModal(id) {
-  const p = people.find(x => x.id === id);
+  const p = peopleService.getById(id);
   if (!p) return;
 
   editPersonId = id;
@@ -1835,7 +1269,7 @@ function renderSingerModalTags() {
   const container = document.getElementById('sTagsGroup');
   if (!container) return;
 
-  const activeTags = tags.filter(t => t.active);
+  const activeTags = tagService.getAll().filter(t => t.active);
   container.innerHTML = activeTags.map(t => {
     const isOn = editPersonTagIds.includes(t.id);
     const pillCls = getTagGroupPillClass(t.group);
@@ -1850,34 +1284,31 @@ function saveSinger() {
   if (!name) return alert('Singer name is required.');
 
   if (editPersonId) {
-    const p = people.find(x => x.id === editPersonId);
-    if (p) {
-      p.name = name;
-      p.gender = gender;
-      p.tagIds = [...editPersonTagIds];
-    }
-  } else {
-    if (people.some(p => p.name.toLowerCase() === name.toLowerCase())) {
-      return alert('A singer with this name already exists.');
-    }
-    people.push({
-      id: 'p_' + Date.now(),
+    peopleService.update(editPersonId, {
       name,
       gender,
-      tagIds: [...editPersonTagIds],
-      active: true
+      tagIds: [...editPersonTagIds]
+    });
+  } else {
+    const existing = peopleService.getByName(name);
+    if (existing) {
+      return alert('A singer with this name already exists.');
+    }
+    peopleService.create({
+      name,
+      gender,
+      tagIds: [...editPersonTagIds]
     });
   }
 
-  setStorage('choirProtoPeople', people);
   closeModal('newSingerModal');
   renderSingers();
 }
 
 function deleteGlobalSinger(name) {
-  if (confirm(`Remove ${name} from the global roster?`)) {
-    people = people.filter(p => p.name !== name);
-    setStorage('choirProtoPeople', people);
+  const match = peopleService.getByName(name);
+  if (match && confirm(`Remove ${name} from the global roster?`)) {
+    peopleService.delete(match.id);
     renderSingers();
   }
 }
@@ -1892,7 +1323,8 @@ function renderTagManagerList() {
   const container = document.getElementById('tagManagerList');
   if (!container) return;
 
-  container.innerHTML = tags.map(t => `
+  const allTags = tagService.getAll();
+  container.innerHTML = allTags.map(t => `
     <div class="card compact">
       <div class="row between">
         <div>
@@ -1916,15 +1348,7 @@ function createCustomTag() {
 
   if (!name) return alert('Tag name is required.');
 
-  const newTag = {
-    id: 'tag_custom_' + Date.now(),
-    name,
-    group,
-    active: true
-  };
-
-  tags.push(newTag);
-  setStorage('choirProtoTags', tags);
+  tagService.create(name, group);
 
   if (nameInput) nameInput.value = '';
   renderTagManagerList();
@@ -1932,26 +1356,21 @@ function createCustomTag() {
 }
 
 function promptRenameTag(tagId) {
-  const t = tags.find(x => x.id === tagId);
+  const t = tagService.getById(tagId);
   if (!t) return;
 
   const newName = prompt('Enter new name for tag:', t.name);
   if (newName && newName.trim()) {
-    t.name = newName.trim();
-    setStorage('choirProtoTags', tags);
+    tagService.rename(tagId, newName.trim());
     renderTagManagerList();
     renderSingers();
   }
 }
 
 function toggleTagActive(tagId) {
-  const t = tags.find(x => x.id === tagId);
-  if (t) {
-    t.active = !t.active;
-    setStorage('choirProtoTags', tags);
-    renderTagManagerList();
-    renderSingers();
-  }
+  tagService.toggleActive(tagId);
+  renderTagManagerList();
+  renderSingers();
 }
 
 // Settings Modal
@@ -1960,23 +1379,17 @@ function openSettings() {
 }
 
 function resetApp() {
-  if (confirm('This will reset ALL data to v1.5 seed data. Are you sure?')) {
-    localStorage.removeItem('choirProtoVersion');
-    localStorage.removeItem('choirProtoTags');
-    localStorage.removeItem('choirProtoPeople');
-    localStorage.removeItem('choirProtoEvents');
-    localStorage.removeItem('choirProtoLooks');
+  if (confirm('This will reset ALL data to v1.6A seed data. Are you sure?')) {
+    storageService.remove('choirProtoSchemaVersion');
+    storageService.remove('choirProtoEventTypes');
+    storageService.remove('choirProtoTags');
+    storageService.remove('choirProtoClients');
+    storageService.remove('choirProtoVenues');
+    storageService.remove('choirProtoPeople');
+    storageService.remove('choirProtoEvents');
+    storageService.remove('choirProtoLooks');
 
-    tags = JSON.parse(JSON.stringify(defaultTags));
-    people = JSON.parse(JSON.stringify(initialPeople));
-    events = JSON.parse(JSON.stringify(initialEvents));
-    looks = JSON.parse(JSON.stringify(initialLooks));
-
-    setStorage('choirProtoVersion', CURRENT_VERSION);
-    setStorage('choirProtoTags', tags);
-    setStorage('choirProtoPeople', people);
-    setStorage('choirProtoEvents', events);
-    setStorage('choirProtoLooks', looks);
+    migrateToV16A();
 
     closeModal('settingsModal');
     render();

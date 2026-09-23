@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Choir Manager — v1.5 Roster Tags & Statistics</title>
+  <title>Choir Manager — v1.6A Data Foundation</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -98,7 +98,7 @@
     </div>
   </div>
 
-  <!-- STATISTICS SCREEN (Replaces Looks in Primary Nav) -->
+  <!-- STATISTICS SCREEN -->
   <div id="statistics" class="screen">
     <div class="top">
       <div class="top-header-row">
@@ -116,7 +116,7 @@
   <!-- FAB -->
   <button id="fab" class="fab" onclick="openNew('enquiry')" aria-label="New enquiry">+</button>
 
-  <!-- BOTTOM NAVIGATION (v1.5: Home, Calendar, Singers, Statistics) -->
+  <!-- BOTTOM NAVIGATION -->
   <div class="nav">
     <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
     <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
@@ -339,24 +339,24 @@
     </div>
 
     <div class="card compact" style="margin-top:14px">
-      <div class="row between"><div class="title">v1.5.0</div><span class="pill confirmed">Active Version</span></div>
+      <div class="row between"><div class="title">v1.6A</div><span class="pill confirmed">Active Version</span></div>
       <div class="muted" style="margin-top:6px">
-        - Roster Tags & Statistics Pass.<br>
-        - Reusable Tag model (Membership, Language, Eligibility, Custom).<br>
-        - Multi-group filtering (OR within group, AND across groups).<br>
-        - Dedicated Statistics tab with Period Switcher (Month/Year/All Time).<br>
-        - Rotation Distribution Buckets (0, 1-2, 3-5, 6+ shows).<br>
-        - Membership usage comparison.<br>
-        - Active Roster Strength & Coverage.<br>
-        - Actionable Statistics Drill-down Modal.<br>
-        - Excludes demo test fixtures from real client metrics.
+        - Data Foundation & Firebase Readiness.<br>
+        - Service & Storage Abstraction Layer (`services.js`).<br>
+        - Stable ID Relationships (`personId`, `clientId`, `venueId`, `eventTypeId`).<br>
+        - Reusable Client & Venue Entities.<br>
+        - Unified EventType Model (`event_type_*`).<br>
+        - Non-destructive Schema Migration Pipeline (`1.6A`).<br>
+        - Corrected Singer-Only History & Statistics (manager appearances excluded).<br>
+        - Assignment/replacement additions default to `Not asked`.
       </div>
     </div>
 
-    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to v1.5 Seed Data)</button>
+    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to v1.6A Seed Data)</button>
   </div>
 </div>
 
+<script src="services.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
