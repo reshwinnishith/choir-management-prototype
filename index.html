@@ -133,6 +133,7 @@
   <div id="singers" class="screen">
     <div class="top"><div class="eyebrow">Roster</div><h1>Singers</h1><div class="sub">Language, live/recording suitability and availability.</div></div>
     <div class="content">
+      <button class="btn soft full" style="margin-bottom:14px" onclick="openNewSinger()">＋ Add new singer</button>
       <div id="singerList"></div>
     </div>
   </div>
@@ -141,7 +142,11 @@
     <div class="top"><div class="eyebrow">Changelog</div><h1>Version history</h1><div class="sub">Track deployments and updates.</div></div>
     <div class="content">
       <div class="card">
-        <div class="row between"><div class="title">v1.2.0</div><span class="pill confirmed">Latest</span></div>
+        <div class="row between"><div class="title">v1.3.0</div><span class="pill confirmed">Latest</span></div>
+        <div class="muted" style="margin-top:6px">- Added capability to add new singers to the global roster.</div>
+      </div>
+      <div class="card">
+        <div class="row between"><div class="title">v1.2.0</div></div>
         <div class="muted" style="margin-top:6px">- Added a Version History tab to track app updates.</div>
       </div>
       <div class="card">
@@ -218,6 +223,28 @@
   </div>
 </div>
 
+<div id="newSingerModal" class="modalwrap" onclick="if(event.target===this)closeModal('newSingerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between"><div><div class="eyebrow">Roster</div><h2>Add a new singer</h2></div><button class="btn ghost small" onclick="closeModal('newSingerModal')">Close</button></div>
+    
+    <label>Name</label>
+    <input id="sName" placeholder="e.g. John">
+    
+    <div class="form2">
+      <div><label>Gender</label>
+      <select id="sGender"><option>Male</option><option>Female</option></select></div>
+      <div><label>Category</label>
+      <select id="sType"><option>Both</option><option>Live</option><option>Recording</option></select></div>
+    </div>
+    
+    <label>Languages (comma separated)</label>
+    <input id="sLangs" placeholder="e.g. Tamil, English">
+    
+    <button class="btn primary full" style="margin-top:14px" onclick="saveNewSinger()">Save Singer</button>
+  </div>
+</div>
+
 <script>
 const initialEvents = [
   {id:1,status:'confirmed',category:'Wedding',type:'Live',date:'2026-09-28',time:'19:30',client:'Rohan & Diya',venue:'Taj Coromandel',singers:8,budget:90000,language:'Tamil',notes:'Black & Gold look',assigned:['Ananya','Sharon','Rahul']},
@@ -227,7 +254,7 @@ const initialEvents = [
   {id:5,status:'confirmed',category:'Concert',type:'Live',date:'2026-10-03',time:'19:00',client:'City Arts',venue:'Museum Theatre',singers:10,budget:120000,language:'Mixed',notes:'Large ensemble',assigned:['Ananya','Meera','Nisha']},
   {id:6,status:'confirmed',category:'Wedding',type:'Live',date:'2026-09-23',time:'19:00',client:'Varun & Sana',venue:'Leela Palace',singers:6,budget:80000,language:'Tamil',notes:'Soft Pastels',assigned:['Meera','Nisha']}
 ];
-const singers = [
+const initialSingers = [
  {name:'Ananya',gender:'Female',langs:['Tamil','English'],type:'Both',available:true,last:'Sep 14'},
  {name:'Meera',gender:'Female',langs:['Tamil','Malayalam'],type:'Live',available:true,last:'Sep 23'},
  {name:'Sharon',gender:'Female',langs:['English','Tamil'],type:'Both',available:false,last:'Sep 10'},
@@ -239,6 +266,7 @@ const singers = [
 ];
 
 let events = JSON.parse(localStorage.getItem('choirProtoEvents')||'null') || initialEvents;
+let singers = JSON.parse(localStorage.getItem('choirProtoSingers')||'null') || initialSingers;
 let newStatus='enquiry', pickedType='Live';
 function money(v){return '₹'+Number(v).toLocaleString('en-IN')}
 function dateParts(d){const x=new Date(d+'T00:00:00');return {day:x.getDate(),mon:x.toLocaleString('en',{month:'short'}),full:x.toLocaleString('en',{day:'numeric',month:'short'})}}
@@ -363,6 +391,20 @@ function openReplacement(){
 }
 function chooseReplacement(name){alert(name+' assigned as replacement ✓');closeModal('replaceModal')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
+function openNewSinger(){ document.getElementById('newSingerModal').classList.add('open'); }
+function saveNewSinger(){
+ const name = document.getElementById('sName').value;
+ const gender = document.getElementById('sGender').value;
+ const type = document.getElementById('sType').value;
+ const langs = document.getElementById('sLangs').value.split(',').map(s=>s.trim()).filter(Boolean);
+ if(!name) return alert('Name required');
+ singers.push({name, gender, type, langs, available:true, last:'New'});
+ localStorage.setItem('choirProtoSingers', JSON.stringify(singers));
+ closeModal('newSingerModal');
+ renderSingers();
+ document.getElementById('sName').value = '';
+ document.getElementById('sLangs').value = '';
+}
 render();
 </script>
 </body>
