@@ -187,6 +187,14 @@
   </div>
 </div>
 
+<div id="assignModal" class="modalwrap" onclick="if(event.target===this)closeModal('assignModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between"><div><div class="eyebrow">Roster</div><h2>Add Singer</h2></div><button class="btn ghost small" onclick="closeModal('assignModal')">Close</button></div>
+    <div id="assignList" style="margin-top:12px"></div>
+  </div>
+</div>
+
 <script>
 const initialEvents = [
   {id:1,status:'confirmed',category:'Wedding',type:'Live',date:'2026-09-28',time:'19:30',client:'Rohan & Diya',venue:'Taj Coromandel',singers:8,budget:90000,language:'Tamil',notes:'Black & Gold look',assigned:['Ananya','Sharon','Rahul']},
@@ -286,18 +294,42 @@ function openDetail(id){
  ${e.notes?`<div class="notice"><b>Notes:</b> ${e.notes}</div>`:''}
  ${e.status==='enquiry'?`<button class="btn primary full" onclick="confirmEvent(${e.id})">Convert enquiry to confirmed show</button>`:
  `<div class="section row between"><h2>Singers</h2><span class="meta">${assigned.length}/${e.singers} assigned</span></div>
- <div class="card compact">${assigned.length?assigned.map(n=>`<div class="row between" style="padding:8px 0"><span>${n}</span><span class="pill">Assigned</span></div>`).join(''):'<div class="empty">No singers assigned yet.</div>'}</div>
- <button class="btn soft full" onclick="suggestLineup(${e.id})">Suggest lineup</button>`}
+ <div class="card compact" style="padding:0">
+  ${assigned.length?assigned.map((n, i)=>`<div class="row between" style="padding:12px; border-bottom:${i<assigned.length-1?'1px solid var(--line)':'none'}"><span style="font-weight:600">${n}</span><button class="btn danger small" onclick="removeSinger(${e.id}, '${n}')" style="padding:6px 10px; border-radius:8px">Remove</button></div>`).join(''):'<div class="empty">No singers assigned yet.</div>'}
+ </div>
+ <div class="row" style="margin-top:12px">
+   <button class="btn ghost full" style="flex:1" onclick="suggestLineup(${e.id})">Suggest lineup</button>
+   <button class="btn primary full" style="flex:1" onclick="openAssign(${e.id})">＋ Add Singer</button>
+ </div>`}
  `;
  document.getElementById('detailModal').classList.add('open');
 }
 function confirmEvent(id){const e=events.find(x=>x.id===id);e.status='confirmed';localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id)}
 function suggestLineup(id){
  const e=events.find(x=>x.id===id);
- let candidates=singers.filter(s=>s.available&&(s.type==='Both'||s.type===e.type));
+ let candidates=singers.filter(s=>s.type==='Both'||s.type===e.type);
  if(e.language!=='Mixed') candidates=candidates.filter(s=>s.langs.includes(e.language));
  e.assigned=candidates.slice(0,e.singers).map(s=>s.name);
  localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);
+}
+function removeSinger(id, name){
+ const e=events.find(x=>x.id===id);
+ e.assigned=e.assigned.filter(n=>n!==name);
+ localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);
+}
+function openAssign(id){
+ const e=events.find(x=>x.id===id);
+ const unassigned=singers.filter(s=>!(e.assigned||[]).includes(s.name));
+ document.getElementById('assignList').innerHTML=unassigned.map(s=>`<div class="card compact replacement"><div class="person">
+ <div class="avatar">${s.name[0]}</div><div><div class="title">${s.name}</div><div class="muted">${s.langs.join(' · ')} · ${s.type}</div></div>
+ <button class="btn soft small" onclick="assignSinger(${id}, '${s.name}')">Add</button></div></div>`).join('');
+ document.getElementById('assignModal').classList.add('open');
+}
+function assignSinger(id, name){
+ const e=events.find(x=>x.id===id);
+ if(!e.assigned) e.assigned=[];
+ if(!e.assigned.includes(name)) e.assigned.push(name);
+ localStorage.setItem('choirProtoEvents',JSON.stringify(events));render();openDetail(id);closeModal('assignModal');
 }
 function openReplacement(){
  const cand=singers.filter(s=>s.available&&(s.type==='Both'||s.type==='Live')&&(s.langs.includes('Tamil')||s.langs.includes('English')));
