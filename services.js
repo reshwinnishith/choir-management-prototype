@@ -1,6 +1,6 @@
 // Choir Manager - v1.6B Service & Storage Abstraction Layer
 
-const SCHEMA_VERSION = '1.6B';
+const SCHEMA_VERSION = '1.6D';
 
 // Storage Engine Abstraction
 const storageService = {
@@ -938,6 +938,56 @@ const eventService = {
     let events = this.getAll();
     events = events.filter(e => e.id !== Number(id));
     storageService.set('choirProtoEvents', events);
+  },
+  duplicate(id, newDate, copyLineup = false) {
+    const orig = this.getById(id);
+    if (!orig) return null;
+
+    const newAssignedSingers = copyLineup ? (orig.assignedSingers || []).map(s => ({
+      personId: s.personId,
+      status: 'Not asked'
+    })) : [];
+
+    const newManagers = copyLineup ? [...(orig.managers || [])] : [];
+
+    return this.create({
+      status: 'enquiry',
+      name: orig.name ? `${orig.name} (Copy)` : 'Untitled Show (Copy)',
+      eventTypeId: orig.eventTypeId,
+      date: newDate,
+      time: orig.time || '',
+      clientId: orig.clientId || null,
+      venueId: orig.venueId || null,
+      city: orig.city || '',
+      state: orig.state || '',
+      singersCount: orig.singersCount || 8,
+      budget: orig.budget || 0,
+      language: orig.language || '',
+      notes: orig.notes || '',
+      managers: newManagers,
+      assignedSingers: newAssignedSingers,
+      isDemoFixture: false
+    });
+  },
+  copyLineup(targetEventId, sourceEventId) {
+    const target = this.getById(targetEventId);
+    const source = this.getById(sourceEventId);
+    if (!target || !source) return null;
+
+    const copiedSingers = (source.assignedSingers || []).map(s => ({
+      personId: s.personId,
+      status: 'Not asked'
+    }));
+
+    const existingPersonIds = new Set((target.assignedSingers || []).map(s => s.personId));
+    const merged = [...(target.assignedSingers || [])];
+    copiedSingers.forEach(s => {
+      if (!existingPersonIds.has(s.personId)) {
+        merged.push(s);
+      }
+    });
+
+    return this.update(targetEventId, { assignedSingers: merged });
   }
 };
 

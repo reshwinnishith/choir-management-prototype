@@ -51,8 +51,8 @@
     <div class="top">
       <div class="top-header-row">
         <div>
-          <div class="eyebrow">September 2026</div>
-          <h1>Calendar</h1>
+          <div class="eyebrow" id="calTopEyebrow">Calendar View</div>
+          <h1 id="calHeading">Calendar</h1>
         </div>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
       </div>
@@ -60,11 +60,20 @@
     </div>
     <div class="content">
       <div class="calendar">
+        <!-- Month Navigation Bar -->
+        <div class="cal-nav-bar">
+          <button type="button" class="btn ghost small" onclick="changeCalMonth(-1)">❮</button>
+          <h3 id="calMonthTitle">September 2026</h3>
+          <div class="row" style="gap:4px">
+            <button type="button" class="btn ghost small" onclick="resetCalMonth()">Today</button>
+            <button type="button" class="btn ghost small" onclick="changeCalMonth(1)">❯</button>
+          </div>
+        </div>
         <div class="cal-head"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
         <div id="calGrid" class="cal-grid"></div>
       </div>
       <div class="section row between">
-        <h2>All this month</h2>
+        <h2>Events this month</h2>
         <span class="meta" id="monthCount">0 entries</span>
       </div>
       <div id="calendarEvents"></div>
@@ -72,12 +81,13 @@
   </div>
 
   <!-- SINGERS SCREEN -->
+  <!-- SINGERS / ROSTER SCREEN -->
   <div id="singers" class="screen">
     <div class="top">
       <div class="top-header-row">
         <div>
-          <div class="eyebrow">Roster & Tags</div>
-          <h1>Singers</h1>
+          <div class="eyebrow">Choir Roster</div>
+          <h1>Roster</h1>
         </div>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
       </div>
@@ -89,10 +99,13 @@
         <button class="btn ghost" onclick="openTagManager()">🏷️ Tags</button>
       </div>
       
-      <input type="text" id="singerSearch" placeholder="Search singers..." oninput="renderSingers()" style="margin-bottom:10px">
+      <div class="row" style="gap:8px; margin-bottom:10px">
+        <input type="text" id="singerSearch" placeholder="Search roster..." oninput="renderSingers()" style="flex:1">
+        <button type="button" id="btnRosterFilterToggle" class="btn ghost" style="padding:10px 12px; white-space:nowrap" onclick="openFilterSheet()">⚡ Filters</button>
+      </div>
       
-      <!-- Shared Tag Filter UI -->
-      <div id="singerFilterBar"></div>
+      <!-- Active Filters Display Bar -->
+      <div id="singerActiveFilterDisplay" style="margin-bottom:10px"></div>
 
       <div id="singerList"></div>
     </div>
@@ -539,9 +552,114 @@
       </div>
     </div>
 
-    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to v1.6A Seed Data)</button>
+    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to Seed Data)</button>
   </div>
 </div>
+
+<!-- MODAL: PERSON DETAIL SHEET -->
+<div id="personDetailModal" class="modalwrap" onclick="if(event.target===this)closeModal('personDetailModal')">
+  <div class="modal" id="personDetailBody"></div>
+</div>
+
+<!-- MODAL: COLLAPSED TAG FILTER SHEET -->
+<div id="filterSheetModal" class="modalwrap" onclick="if(event.target===this)closeModal('filterSheetModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Roster Filters</div>
+        <h2>Filter Roster</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('filterSheetModal')">Close</button>
+    </div>
+    <div id="filterSheetBody" style="margin-top:12px"></div>
+    <div class="sticky-modal-footer row" style="gap:8px">
+      <button class="btn primary full" style="flex:1" onclick="applyFilterSheet()">Apply Filters</button>
+      <button class="btn ghost small" onclick="clearFilterSheet()">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SINGER ASSIGNMENT ACTION SHEET -->
+<div id="assignmentActionModal" class="modalwrap" onclick="if(event.target===this)closeModal('assignmentActionModal')">
+  <div class="modal" id="assignmentActionBody"></div>
+</div>
+
+<!-- MODAL: SWAP SINGER PICKER -->
+<div id="swapPickerModal" class="modalwrap" onclick="if(event.target===this)closeModal('swapPickerModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Replacement</div>
+        <h2 id="swapPickerTitle">Swap Singer</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('swapPickerModal')">Close</button>
+    </div>
+    <input id="swapSearchInput" placeholder="Search replacement candidate..." oninput="renderSwapPickerList()" style="margin-top:10px">
+    <div id="swapFilterBar" style="margin-top:8px"></div>
+    <div id="swapCandidateList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL: DAY AGENDA -->
+<div id="dayAgendaModal" class="modalwrap" onclick="if(event.target===this)closeModal('dayAgendaModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Schedule Agenda</div>
+        <h2 id="dayAgendaTitle">Events on Date</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('dayAgendaModal')">Close</button>
+    </div>
+    <div id="dayAgendaList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- MODAL: DUPLICATE EVENT -->
+<div id="duplicateModal" class="modalwrap" onclick="if(event.target===this)closeModal('duplicateModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Event Action</div>
+        <h2>Duplicate Event</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('duplicateModal')">Close</button>
+    </div>
+    <div class="notice">Creates a new draft event pre-filled with client, venue, and settings.</div>
+    <label>New Event Date *</label>
+    <input id="dupDate" type="date">
+    <div style="margin-top:14px">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer">
+        <input id="dupCopyLineup" type="checkbox" style="width:auto">
+        <span>Copy Lineup too? (Statuses reset to Not asked)</span>
+      </label>
+    </div>
+    <button class="btn primary full" style="margin-top:20px" onclick="executeDuplicateEvent()">Create Duplicate Event</button>
+  </div>
+</div>
+
+<!-- MODAL: COPY PREVIOUS LINEUP -->
+<div id="copyLineupModal" class="modalwrap" onclick="if(event.target===this)closeModal('copyLineupModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Lineup Action</div>
+        <h2>Copy Previous Lineup</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('copyLineupModal')">Close</button>
+    </div>
+    <div class="notice">Select a previous event to copy assigned singers into current lineup.</div>
+    <div id="copyLineupEventList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- TOAST NOTIFICATION CONTAINER -->
+<div class="toast-container"><div id="toast" class="toast">Saved</div></div>
+
 
 <script src="india-cities.js"></script>
 <script src="services.js"></script>
