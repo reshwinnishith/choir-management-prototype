@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function ownsWorkspace(workspaceId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)) &&
+        get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerUid == request.auth.uid
+      );
+    }
+
+    // User documents: only accessible by the owner user
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Workspace document: owner creation and owner access only
+    match /workspaces/{workspaceId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+
+      // All workspace subcollections (people, tags, clients, venues, eventTypes, events)
+      match /{subcollection}/{docId} {
+        allow read, write: if ownsWorkspace(workspaceId);
+      }
+    }
+
+    // Default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

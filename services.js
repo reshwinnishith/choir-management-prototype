@@ -1,8 +1,15 @@
-// Choir Manager - v1.6B Service & Storage Abstraction Layer
+// Choir Manager - v1.7 Firebase Cloud Foundation + Data Layer Abstraction
 
-const SCHEMA_VERSION = '1.6D';
+const SCHEMA_VERSION = '1.7';
 
-// Storage Engine Abstraction
+// Mode Detection Helper
+function isDemoMode() {
+  return window.location.search.includes('demo=1') || localStorage.getItem('choirForceDemo') === 'true';
+}
+window.isDemoMode = isDemoMode;
+
+
+// Storage Engine Abstraction (Local Demo Mode)
 const storageService = {
   get(key, fallback) {
     try {
@@ -90,7 +97,7 @@ const cityService = {
   }
 };
 
-// 2. Default Event Types Definitions
+// 2. Default System Event Types Definitions (Application Defaults)
 const defaultEventTypes = [
   { id: 'event_type_unspecified', name: 'Unspecified', active: true },
   { id: 'event_type_performance', name: 'Performance', active: true },
@@ -102,7 +109,7 @@ const defaultEventTypes = [
   { id: 'event_type_cast', name: 'Cast', active: true }
 ];
 
-// 3. Default Tag Definitions
+// 3. Default Tag Definitions for Local Demo Mode
 const defaultTags = [
   { id: 'tag_old_member', name: 'Old Member', group: 'membership', active: true },
   { id: 'tag_new_member', name: 'New Member', group: 'membership', active: true },
@@ -114,9 +121,8 @@ const defaultTags = [
   { id: 'tag_recording', name: 'Recording', group: 'eligibility', active: true }
 ];
 
-// 4. Initial Seed Datasets
+// 4. Initial Seed Datasets (Local Demo Mode Only)
 const initialPeople = [
-  // Old Members
   { id: 'p_roe', name: 'Roe', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_anuj', name: 'Anuj', gender: 'Male', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_abraham', name: 'Abraham', gender: 'Male', tagIds: ['tag_old_member', 'tag_english', 'tag_performance'], active: true },
@@ -139,413 +145,41 @@ const initialPeople = [
   { id: 'p_varsha', name: 'Varsha', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_varshini', name: 'Varshini', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
   { id: 'p_pragee', name: 'Pragee', gender: 'Female', tagIds: ['tag_old_member', 'tag_tamil', 'tag_performance'], active: true },
-
-  // New Members
   { id: 'p_aishu', name: 'Aishu', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_angel', name: 'Angel', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_dyuti', name: 'Dyuti', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_hindi', 'tag_recording'], active: true },
   { id: 'p_geejay', name: 'Geejay', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_joe', name: 'Joe', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
   { id: 'p_kevin', name: 'Kevin', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_mark', name: 'Mark', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_nattu', name: 'Nattu', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_olivia', name: 'Olivia', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_pranav', name: 'Pranav', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_sai', name: 'Sai', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_sebi', name: 'Sebi', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_malayalam', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_yazhini', name: 'Yazhini', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_performance'], active: true },
-  { id: 'p_waveen', name: 'Waveen', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-  { id: 'p_luchy', name: 'Luchy', gender: 'Female', tagIds: ['tag_new_member', 'tag_english', 'tag_performance'], active: true },
-  { id: 'p_lucky', name: 'Lucky', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_performance', 'tag_recording'], active: true },
-
-  // Spreadsheet 3rd Column Members (Recording Only)
-  { id: 'p_alfred', name: 'Alfred', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_moncy', name: 'Moncy', gender: 'Male', tagIds: ['tag_new_member', 'tag_malayalam', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_aishwarya', name: 'Aishwarya', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_ivan', name: 'Ivan', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_sukanti', name: 'Sukanti', gender: 'Female', tagIds: ['tag_new_member', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_rahul', name: 'Rahul', gender: 'Male', tagIds: ['tag_new_member', 'tag_tamil', 'tag_hindi', 'tag_english', 'tag_recording'], active: true },
-  { id: 'p_snigdha', name: 'Snigdha', gender: 'Female', tagIds: ['tag_new_member', 'tag_tamil', 'tag_english', 'tag_recording'], active: true }
+  { id: 'p_mark', name: 'Mark', gender: 'Male', tagIds: ['tag_new_member', 'tag_english', 'tag_tamil', 'tag_performance', 'tag_recording'], active: true }
 ];
 
 const initialClients = [
-  { id: 'client_staccato_band', name: 'Staccato Band', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_ashwin_studio', name: 'Ashwin Studio', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_vijay_productions', name: 'Vijay Productions', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_seven_screen_studio', name: 'Seven Screen Studio', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_elfe_band', name: 'ELFE Band', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_rohan_diya', name: 'Rohan & Diya', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_aster_labs', name: 'Aster Labs', contactName: '', phone: '', email: '', notes: '', active: true },
-  { id: 'client_city_arts', name: 'City Arts', contactName: '', phone: '', email: '', notes: '', active: true }
+  { id: 'client_staccato_band', name: 'Staccato', contactName: 'Vikram', phone: '+919840012345', email: 'events@staccatoband.in', notes: 'Core band shows & recordings', active: true },
+  { id: 'client_seven_screen_studio', name: 'Seven Screen Studio', contactName: 'Lalit Kumar', phone: '+919841054321', email: 'production@7screen.com', notes: 'Film audio launches & promos', active: true },
+  { id: 'client_sony_music_south', name: 'Sony Music South', contactName: 'Ashok', phone: '+919884099887', email: 'south@sonymusic.com', notes: 'Recordings & promotional chorus', active: true },
+  { id: 'client_aster_labs', name: 'Aster Labs', contactName: 'Divya', phone: '+919710044556', email: 'events@aster.in', notes: 'Corporate galas', active: true },
+  { id: 'client_city_arts', name: 'City Arts Foundation', contactName: 'Raghavan', phone: '+919444011223', email: 'contact@cityarts.org', notes: 'Cultural fests', active: true }
 ];
 
 const initialVenues = [
-  { id: 'venue_intercontinental', name: 'Intercontinental', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_tase', name: 'Tase', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_juhu_beach', name: 'Juhu beach', city: 'Mumbai', state: 'Maharashtra', active: true },
-  { id: 'venue_staccato_studio', name: 'Staccato studio - teynampet', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_rec', name: 'REC', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_chennai_trade_centre', name: 'Chennai trade centre', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_hindustan_clg', name: 'Hindustan clg', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_vandalur', name: 'Vandalur', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_vgp', name: 'VGP', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_chennai_trade_centre', name: 'Chennai Trade Centre', city: 'Chennai', state: 'Tamil Nadu', active: true },
   { id: 'venue_taj_coromandel', name: 'Taj Coromandel', city: 'Chennai', state: 'Tamil Nadu', active: true },
   { id: 'venue_itc_grand_chola', name: 'ITC Grand Chola', city: 'Chennai', state: 'Tamil Nadu', active: true },
-  { id: 'venue_museum_theatre', name: 'Museum Theatre', city: 'Chennai', state: 'Tamil Nadu', active: true }
+  { id: 'venue_museum_theatre', name: 'Museum Theatre', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_staccato_studio', name: 'Staccato Studio', city: 'Chennai', state: 'Tamil Nadu', active: true },
+  { id: 'venue_rec', name: 'REC Hall', city: 'Chennai', state: 'Tamil Nadu', active: true }
 ];
 
 const initialEvents = [
   {
     id: 1,
-    name: '',
-    status: 'confirmed',
-    eventTypeId: 'event_type_unspecified',
-    date: '2026-08-08',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_intercontinental',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 8,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_anjana', status: 'Available' },
-      { personId: 'p_serene', status: 'Available' },
-      { personId: 'p_tanya', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_tofer', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Ashwin Recording',
-    status: 'confirmed',
-    eventTypeId: 'event_type_recording',
-    date: '2026-08-12',
-    time: '',
-    clientId: 'client_ashwin_studio',
-    venueId: 'venue_tase',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 11,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_sneha', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_snigdha', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_mark', status: 'Available' },
-      { personId: 'p_rahul', status: 'Available' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Music Video Shoot - Vijay',
-    status: 'confirmed',
-    eventTypeId: 'event_type_shoot',
-    date: '2026-08-20',
-    time: '',
-    clientId: 'client_vijay_productions',
-    venueId: 'venue_juhu_beach',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    singersCount: 6,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_sheena', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' }
-    ]
-  },
-  {
-    id: 4,
-    name: 'Staccato - Recording',
-    status: 'confirmed',
-    eventTypeId: 'event_type_recording',
-    date: '2026-08-23',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_staccato_studio',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 17,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_sheena', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_angel', status: 'Available' },
-      { personId: 'p_anjana', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_aishu', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_tofer', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_waveen', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_mark', status: 'Available' }
-    ]
-  },
-  {
-    id: 5,
-    name: 'Staccato Rehearsal',
-    status: 'confirmed',
-    eventTypeId: 'event_type_rehearsal',
-    date: '2026-08-26',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_staccato_studio',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 15,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_angel', status: 'Available' },
-      { personId: 'p_sneha', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_lucky', status: 'Available' },
-      { personId: 'p_waveen', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_mark', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' }
-    ]
-  },
-  {
-    id: 6,
-    name: 'Staccato Rehersal',
-    status: 'confirmed',
-    eventTypeId: 'event_type_rehearsal',
-    date: '2026-08-27',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_staccato_studio',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 14,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_olivia', status: 'Available' },
-      { personId: 'p_chakki', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_lucky', status: 'Available' },
-      { personId: 'p_angel', status: 'Available' },
-      { personId: 'p_waveen', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_sneha', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' }
-    ]
-  },
-  {
-    id: 7,
-    name: 'Staccato Sound check',
-    status: 'confirmed',
-    eventTypeId: 'event_type_soundcheck',
-    date: '2026-08-28',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_rec',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 20,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_sheena', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_sneha', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' },
-      { personId: 'p_aishu', status: 'Available' },
-      { personId: 'p_angel', status: 'Available' },
-      { personId: 'p_olivia', status: 'Available' },
-      { personId: 'p_chakki', status: 'Available' },
-      { personId: 'p_tincy', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_lucky', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_waveen', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_mark', status: 'Available' },
-      { personId: 'p_bryan', status: 'Available' }
-    ]
-  },
-  {
-    id: 8,
-    name: 'Sardar Audio launch',
-    status: 'confirmed',
-    eventTypeId: 'event_type_unspecified',
-    date: '2026-08-31',
-    time: '',
-    clientId: 'client_seven_screen_studio',
-    venueId: 'venue_chennai_trade_centre',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 16,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: ['p_nandhika'],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_sheena', status: 'Available' },
-      { personId: 'p_nandhika', status: 'Available' },
-      { personId: 'p_chakki', status: 'Available' },
-      { personId: 'p_tincy', status: 'Available' },
-      { personId: 'p_sneha', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_bryan', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_joe', status: 'Available' },
-      { personId: 'p_mark', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' }
-    ]
-  },
-  {
-    id: 9,
-    name: '',
-    status: 'confirmed',
-    eventTypeId: 'event_type_unspecified',
-    date: '2026-09-03',
-    time: '',
-    clientId: 'client_elfe_band',
-    venueId: 'venue_hindustan_clg',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 10,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: ['p_sheena', 'p_varsha'],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_chakki', status: 'Available' },
-      { personId: 'p_tincy', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_joe', status: 'Available' },
-      { personId: 'p_waveen', status: 'Available' },
-      { personId: 'p_nattu', status: 'Available' }
-    ]
-  },
-  {
-    id: 10,
-    name: 'Staccato - teachers day',
-    status: 'confirmed',
-    eventTypeId: 'event_type_unspecified',
-    date: '2026-09-05',
-    time: '',
-    clientId: 'client_staccato_band',
-    venueId: 'venue_vandalur',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 6,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: [],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_varsha', status: 'Available' },
-      { personId: 'p_serene', status: 'Available' },
-      { personId: 'p_tanya', status: 'Available' },
-      { personId: 'p_reuben', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' }
-    ]
-  },
-  {
-    id: 11,
-    name: '',
-    status: 'confirmed',
-    eventTypeId: 'event_type_unspecified',
-    date: '2026-09-06',
-    time: '',
-    clientId: 'client_elfe_band',
-    venueId: 'venue_vgp',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    singersCount: 10,
-    budget: 0,
-    language: '',
-    notes: '',
-    managers: ['p_sheena', 'p_varsha'],
-    assignedSingers: [
-      { personId: 'p_roe', status: 'Available' },
-      { personId: 'p_chakki', status: 'Available' },
-      { personId: 'p_tincy', status: 'Available' },
-      { personId: 'p_vaimu', status: 'Available' },
-      { personId: 'p_geejay', status: 'Available' },
-      { personId: 'p_anuj', status: 'Available' },
-      { personId: 'p_sai', status: 'Available' },
-      { personId: 'p_kevin', status: 'Available' },
-      { personId: 'p_sebi', status: 'Available' },
-      { personId: 'p_reuben', status: 'Available' }
-    ]
-  },
-  // UPCOMING DEMO FIXTURES
-  {
-    id: 12,
-    name: '',
+    name: 'Rohan & Diya Wedding',
     status: 'enquiry',
     eventTypeId: 'event_type_performance',
     date: '2026-09-28',
-    time: '19:00',
-    clientId: 'client_rohan_diya',
+    time: '18:00',
+    clientId: 'client_staccato_band',
     venueId: 'venue_taj_coromandel',
     city: 'Chennai',
     state: 'Tamil Nadu',
@@ -610,79 +244,276 @@ const initialEvents = [
   }
 ];
 
-// Non-Destructive In-Place Schema Migration Engine (v1.6A -> v1.6B)
-function migrateToV16B() {
-  const currentSchema = localStorage.getItem('choirProtoSchemaVersion');
-  if (currentSchema === SCHEMA_VERSION) {
-    return; // Already v1.6B schema
+// DATA PROVIDER ARCHITECTURE
+
+// 1. LOCAL DATA PROVIDER (Local Demo Mode)
+const localDataProvider = {
+  getPeople() { return storageService.get('choirProtoPeople', initialPeople); },
+  getTags() { return storageService.get('choirProtoTags', defaultTags); },
+  getClients() { return storageService.get('choirProtoClients', initialClients); },
+  getVenues() { return storageService.get('choirProtoVenues', initialVenues); },
+  getEventTypes() { return storageService.get('choirProtoEventTypes', defaultEventTypes); },
+  getEvents() { return storageService.get('choirProtoEvents', initialEvents); },
+
+  setPeople(data) { storageService.set('choirProtoPeople', data); },
+  setTags(data) { storageService.set('choirProtoTags', data); },
+  setClients(data) { storageService.set('choirProtoClients', data); },
+  setVenues(data) { storageService.set('choirProtoVenues', data); },
+  setEventTypes(data) { storageService.set('choirProtoEventTypes', data); },
+  setEvents(data) { storageService.set('choirProtoEvents', data); }
+};
+
+// 2. FIRESTORE DATA PROVIDER (Production Firebase Mode)
+let activeFirebaseApp = null;
+let activeFirebaseAuth = null;
+let activeFirestoreDb = null;
+let currentUser = null;
+let currentWorkspaceId = null;
+
+// In-Memory Production Cache
+const firestoreCache = {
+  people: [],
+  tags: [],
+  clients: [],
+  venues: [],
+  eventTypes: defaultEventTypes,
+  events: [],
+  isLoaded: false
+};
+
+const authService = {
+  isInitialized: false,
+
+  init(onAuthChangeCallback) {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+
+    if (isDemoMode()) {
+      console.log('[Auth] Running in Local Demo Mode (?demo=1). Auth bypass active.');
+      if (onAuthChangeCallback) onAuthChangeCallback(null, true);
+      return;
+    }
+
+    try {
+      const SDK = window.FirebaseSDK;
+      if (!SDK) {
+        console.warn('[Firebase] SDK script not loaded yet. Falling back to Demo Mode.');
+        if (onAuthChangeCallback) onAuthChangeCallback(null, false);
+        return;
+      }
+
+      const config = window.FIREBASE_WEB_CONFIG;
+      activeFirebaseApp = SDK.initializeApp(config);
+      activeFirebaseAuth = SDK.getAuth(activeFirebaseApp);
+      activeFirestoreDb = SDK.getFirestore(activeFirebaseApp);
+
+      if (typeof SDK.enableIndexedDbPersistence === 'function' && !window.USE_FIREBASE_EMULATOR) {
+        SDK.enableIndexedDbPersistence(activeFirestoreDb).catch(err => {
+          if (err.code === 'failed-precondition') {
+            console.warn('[Firestore Cache] Multiple tabs open; persistence enabled in first tab only.');
+          } else if (err.code === 'unimplemented') {
+            console.warn('[Firestore Cache] Browser does not support offline persistence.');
+          }
+        });
+      }
+
+      if (window.USE_FIREBASE_EMULATOR) {
+        console.log('[Firebase] Connecting to Local Emulators (Auth: 9099, Firestore: 8080)...');
+        SDK.connectAuthEmulator(activeFirebaseAuth, "http://127.0.0.1:9099");
+        SDK.connectFirestoreEmulator(activeFirestoreDb, "127.0.0.1", 8080);
+      }
+
+      SDK.onAuthStateChanged(activeFirebaseAuth, async (user) => {
+        currentUser = user;
+        if (user) {
+          console.log(`[Auth] User signed in: ${user.email} (${user.uid})`);
+          await firestoreDataProvider.loadWorkspaceForUser(user);
+          if (onAuthChangeCallback) onAuthChangeCallback(user, false);
+        } else {
+          console.log('[Auth] Signed out.');
+          firestoreDataProvider.clearCache();
+          if (onAuthChangeCallback) onAuthChangeCallback(null, false);
+        }
+      });
+    } catch (err) {
+      console.error('[Firebase Init Error]:', err);
+      if (onAuthChangeCallback) onAuthChangeCallback(null, false);
+    }
+  },
+
+  async signIn(email, password) {
+    if (isDemoMode()) return { user: null };
+    const SDK = window.FirebaseSDK;
+    return await SDK.signInWithEmailAndPassword(activeFirebaseAuth, email, password);
+  },
+
+  async signUp(email, password, displayName = '') {
+    if (isDemoMode()) return { user: null };
+    const SDK = window.FirebaseSDK;
+    const cred = await SDK.createUserWithEmailAndPassword(activeFirebaseAuth, email, password);
+    currentUser = cred.user;
+    await firestoreDataProvider.createFirstRunWorkspace(cred.user, displayName);
+    return cred;
+  },
+
+  async signOut() {
+    if (isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    await SDK.signOut(activeFirebaseAuth);
+    currentUser = null;
+    currentWorkspaceId = null;
+    firestoreDataProvider.clearCache();
+  },
+
+  getUser() {
+    return currentUser;
+  },
+
+  getWorkspaceId() {
+    return currentWorkspaceId;
   }
+};
 
-  console.log(`[Migration] Running non-destructive migration to schema ${SCHEMA_VERSION}...`);
+const firestoreDataProvider = {
+  clearCache() {
+    firestoreCache.people = [];
+    firestoreCache.tags = [];
+    firestoreCache.clients = [];
+    firestoreCache.venues = [];
+    firestoreCache.eventTypes = [...defaultEventTypes];
+    firestoreCache.events = [];
+    firestoreCache.isLoaded = false;
+  },
 
-  let peopleList = storageService.get('choirProtoPeople', null);
-  let eventsList = storageService.get('choirProtoEvents', null);
-  let tagsList = storageService.get('choirProtoTags', null);
-  let clientsList = storageService.get('choirProtoClients', null);
-  let venuesList = storageService.get('choirProtoVenues', null);
-  let eventTypesList = storageService.get('choirProtoEventTypes', null);
+  async loadWorkspaceForUser(user) {
+    if (!user || isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
 
-  if (!eventTypesList) eventTypesList = defaultEventTypes;
-  if (!tagsList) tagsList = defaultTags;
-  if (!clientsList) clientsList = initialClients;
-  if (!venuesList) venuesList = initialVenues;
-  if (!peopleList) peopleList = initialPeople;
-  if (!eventsList) eventsList = initialEvents;
+    try {
+      const userDocRef = SDK.doc(db, "users", user.uid);
+      const userSnap = await SDK.getDoc(userDocRef);
 
-  // Venue location updates for v1.6B
-  venuesList.forEach(v => {
-    if (!v.city) {
-      if (v.name.toLowerCase().includes('juhu')) {
-        v.city = 'Mumbai';
-        v.state = 'Maharashtra';
+      if (userSnap.exists() && userSnap.data().currentWorkspaceId) {
+        currentWorkspaceId = userSnap.data().currentWorkspaceId;
       } else {
-        v.city = 'Chennai';
-        v.state = 'Tamil Nadu';
+        await this.createFirstRunWorkspace(user, user.displayName || '');
       }
+
+      await this.refreshWorkspaceCache();
+    } catch (err) {
+      console.error('[Firestore] Error loading workspace:', err);
     }
-  });
+  },
 
-  const venueMap = new Map();
-  venuesList.forEach(v => venueMap.set(v.id, v));
+  async createFirstRunWorkspace(user, displayName = '') {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const wsId = `ws_${user.uid.substr(0, 8)}`;
+    currentWorkspaceId = wsId;
 
-  // Transform events
-  eventsList.forEach(e => {
-    if (!e.city || !e.state) {
-      const vObj = venueMap.get(e.venueId);
-      if (vObj) {
-        e.city = vObj.city || 'Chennai';
-        e.state = vObj.state || 'Tamil Nadu';
-      } else {
-        e.city = 'Chennai';
-        e.state = 'Tamil Nadu';
+    // Check if user already has a workspace configured
+    const userDocRef = SDK.doc(db, "users", user.uid);
+    const userSnap = await SDK.getDoc(userDocRef);
+    if (userSnap.exists() && userSnap.data().currentWorkspaceId) {
+      currentWorkspaceId = userSnap.data().currentWorkspaceId;
+      console.log(`[Firestore] User ${user.email} already has workspace ${currentWorkspaceId}. Reusing.`);
+      return;
+    }
+
+    console.log(`[Firestore] Initializing clean workspace ${wsId} for user ${user.email}...`);
+
+    // 1. Create User Document
+    await SDK.setDoc(SDK.doc(db, "users", user.uid), {
+      displayName: displayName || user.email.split('@')[0],
+      email: user.email,
+      currentWorkspaceId: wsId,
+      createdAt: SDK.serverTimestamp(),
+      updatedAt: SDK.serverTimestamp()
+    });
+
+    // 2. Create Workspace Document
+    await SDK.setDoc(SDK.doc(db, "workspaces", wsId), {
+      name: `${displayName || 'Choir'} Workspace`,
+      ownerUid: user.uid,
+      createdAt: SDK.serverTimestamp(),
+      updatedAt: SDK.serverTimestamp()
+    });
+
+    // 3. Initialize ONLY default System Event Types (Rule 5: No singers, events, clients, or venues uploaded!)
+    for (const et of defaultEventTypes) {
+      await SDK.setDoc(SDK.doc(db, "workspaces", wsId, "eventTypes", et.id), {
+        ...et,
+        createdAt: SDK.serverTimestamp(),
+        updatedAt: SDK.serverTimestamp()
+      });
+    }
+
+    console.log(`[Firestore] Clean workspace ${wsId} initialized successfully with default system Event Types.`);
+  },
+
+  async refreshWorkspaceCache() {
+    if (!currentWorkspaceId || isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const wsId = currentWorkspaceId;
+
+    try {
+      const collections = ['people', 'tags', 'clients', 'venues', 'eventTypes', 'events'];
+      for (const colName of collections) {
+        const snap = await SDK.getDocs(SDK.collection(db, "workspaces", wsId, colName));
+        const items = [];
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          items.push({ id: docSnap.id, ...d });
+        });
+
+        if (colName === 'eventTypes' && items.length === 0) {
+          firestoreCache[colName] = [...defaultEventTypes];
+        } else {
+          firestoreCache[colName] = items;
+        }
       }
+      firestoreCache.isLoaded = true;
+      console.log(`[Firestore Cache] Refreshed workspace ${wsId} data cache. (${firestoreCache.events.length} events, ${firestoreCache.people.length} singers).`);
+    } catch (err) {
+      console.error('[Firestore Cache] Error refreshing workspace cache:', err);
     }
-  });
+  },
 
-  // Save transformed state to storage
-  storageService.set('choirProtoSchemaVersion', SCHEMA_VERSION);
-  storageService.set('choirProtoEventTypes', eventTypesList);
-  storageService.set('choirProtoTags', tagsList);
-  storageService.set('choirProtoClients', clientsList);
-  storageService.set('choirProtoVenues', venuesList);
-  storageService.set('choirProtoPeople', peopleList);
-  storageService.set('choirProtoEvents', eventsList);
+  async writeDoc(colName, docId, data) {
+    if (isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const wsId = currentWorkspaceId;
+    if (!wsId) throw new Error('Cannot write document: No active workspace');
 
-  console.log(`[Migration] Successfully completed schema migration to ${SCHEMA_VERSION}.`);
-}
+    const payload = {
+      ...data,
+      updatedAt: SDK.serverTimestamp()
+    };
+    if (!data.createdAt) payload.createdAt = SDK.serverTimestamp();
 
-// Run Migration Pipeline
-migrateToV16B();
+    await SDK.setDoc(SDK.doc(db, "workspaces", wsId, colName, String(docId)), payload, { merge: true });
+  },
 
-// SERVICE LAYER ABSTRACTION
+  async deleteDoc(colName, docId) {
+    if (isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const wsId = currentWorkspaceId;
+    if (!wsId) throw new Error('Cannot delete document: No active workspace');
+
+    await SDK.deleteDoc(SDK.doc(db, "workspaces", wsId, colName, String(docId)));
+  }
+};
+
+// DOMAIN SERVICES ABSTRACTION
 
 const peopleService = {
   getAll() {
-    return storageService.get('choirProtoPeople', initialPeople);
+    if (isDemoMode()) return localDataProvider.getPeople();
+    return firestoreCache.people;
   },
   getById(id) {
     return this.getAll().find(p => p.id === id) || null;
@@ -692,107 +523,123 @@ const peopleService = {
     const n = name.trim().toLowerCase();
     return this.getAll().find(p => p.name.toLowerCase() === n) || null;
   },
-  create(data) {
-    const people = this.getAll();
+  async create(data) {
     const newPerson = {
       id: generateId('p'),
-      name: data.name,
+      name: data.name.trim(),
       gender: data.gender || 'Female',
       tagIds: data.tagIds || ['tag_new_member'],
       active: true
     };
-    people.push(newPerson);
-    storageService.set('choirProtoPeople', people);
-    return newPerson;
-  },
-  update(id, data) {
-    const people = this.getAll();
-    const p = people.find(x => x.id === id);
-    if (p) {
-      Object.assign(p, data);
-      storageService.set('choirProtoPeople', people);
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getPeople();
+      list.push(newPerson);
+      localDataProvider.setPeople(list);
+      return newPerson;
+    } else {
+      await firestoreDataProvider.writeDoc('people', newPerson.id, newPerson);
+      firestoreCache.people.push(newPerson);
+      return newPerson;
     }
-    return p;
   },
-  delete(id) {
-    let people = this.getAll();
-    people = people.filter(p => p.id !== id);
-    storageService.set('choirProtoPeople', people);
+  async update(id, data) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getPeople();
+      const p = list.find(x => x.id === id);
+      if (p) {
+        Object.assign(p, data);
+        localDataProvider.setPeople(list);
+      }
+      return p;
+    } else {
+      const p = firestoreCache.people.find(x => x.id === id);
+      if (!p) throw new Error(`Person not found: ${id}`);
+      await firestoreDataProvider.writeDoc('people', id, data);
+      Object.assign(p, data);
+      return p;
+    }
+  },
+  async delete(id) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getPeople().filter(p => p.id !== id);
+      localDataProvider.setPeople(list);
+    } else {
+      await firestoreDataProvider.deleteDoc('people', id);
+      firestoreCache.people = firestoreCache.people.filter(p => p.id !== id);
+    }
   }
 };
 
 const tagService = {
   getAll() {
-    return storageService.get('choirProtoTags', defaultTags);
+    if (isDemoMode()) return localDataProvider.getTags();
+    return firestoreCache.tags.length ? firestoreCache.tags : defaultTags;
   },
   getById(id) {
     return this.getAll().find(t => t.id === id) || null;
   },
-  create(name, group = 'custom') {
-    const tags = this.getAll();
+  async create(name, group = 'custom') {
     const newTag = {
       id: generateId('tag_custom'),
       name: name.trim(),
       group,
       active: true
     };
-    tags.push(newTag);
-    storageService.set('choirProtoTags', tags);
-    return newTag;
-  },
-  rename(id, newName) {
-    const tags = this.getAll();
-    const t = tags.find(x => x.id === id);
-    if (t) {
-      t.name = newName.trim();
-      storageService.set('choirProtoTags', tags);
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getTags();
+      list.push(newTag);
+      localDataProvider.setTags(list);
+      return newTag;
+    } else {
+      await firestoreDataProvider.writeDoc('tags', newTag.id, newTag);
+      firestoreCache.tags.push(newTag);
+      return newTag;
     }
-    return t;
   },
-  toggleActive(id) {
-    const tags = this.getAll();
-    const t = tags.find(x => x.id === id);
-    if (t) {
-      t.active = !t.active;
-      storageService.set('choirProtoTags', tags);
+  async rename(id, newName) {
+    const data = { name: newName.trim() };
+    if (isDemoMode()) {
+      const list = localDataProvider.getTags();
+      const t = list.find(x => x.id === id);
+      if (t) { t.name = data.name; localDataProvider.setTags(list); }
+      return t;
+    } else {
+      const t = (firestoreCache.tags.length ? firestoreCache.tags : defaultTags).find(x => x.id === id);
+      if (!t) throw new Error(`Tag not found: ${id}`);
+      await firestoreDataProvider.writeDoc('tags', id, data);
+      t.name = data.name;
+      return t;
     }
-    return t;
+  },
+  async toggleActive(id) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getTags();
+      const t = list.find(x => x.id === id);
+      if (t) { t.active = !t.active; localDataProvider.setTags(list); }
+      return t;
+    } else {
+      const t = (firestoreCache.tags.length ? firestoreCache.tags : defaultTags).find(x => x.id === id);
+      if (!t) throw new Error(`Tag not found: ${id}`);
+      const nextActive = !t.active;
+      await firestoreDataProvider.writeDoc('tags', id, { active: nextActive });
+      t.active = nextActive;
+      return t;
+    }
   }
 };
 
 const clientService = {
   getAll() {
-    return storageService.get('choirProtoClients', initialClients);
+    if (isDemoMode()) return localDataProvider.getClients();
+    return firestoreCache.clients;
   },
   getById(id) {
     if (!id) return null;
     return this.getAll().find(c => c.id === id) || null;
   },
-  getOrCreateByName(name, extraData = {}) {
-    if (!name || !name.trim()) return null;
-    const cleanName = name.trim();
-    const clients = this.getAll();
-    let match = clients.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
-    if (!match) {
-      match = {
-        id: generateId('client'),
-        name: cleanName,
-        contactName: extraData.contactName || '',
-        phone: extraData.phone || '',
-        email: extraData.email || '',
-        notes: extraData.notes || '',
-        active: true
-      };
-      clients.push(match);
-      storageService.set('choirProtoClients', clients);
-    } else if (extraData.contactName || extraData.phone || extraData.email) {
-      Object.assign(match, extraData);
-      storageService.set('choirProtoClients', clients);
-    }
-    return match;
-  },
-  create(data) {
-    const clients = this.getAll();
+  async create(data) {
     const newClient = {
       id: generateId('client'),
       name: data.name.trim(),
@@ -802,43 +649,44 @@ const clientService = {
       notes: data.notes || '',
       active: true
     };
-    clients.push(newClient);
-    storageService.set('choirProtoClients', clients);
-    return newClient;
-  },
-  update(id, data) {
-    const clients = this.getAll();
-    const c = clients.find(x => x.id === id);
-    if (c) {
-      Object.assign(c, data);
-      storageService.set('choirProtoClients', clients);
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getClients();
+      list.push(newClient);
+      localDataProvider.setClients(list);
+      return newClient;
+    } else {
+      await firestoreDataProvider.writeDoc('clients', newClient.id, newClient);
+      firestoreCache.clients.push(newClient);
+      return newClient;
     }
-    return c;
+  },
+  async update(id, data) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getClients();
+      const c = list.find(x => x.id === id);
+      if (c) { Object.assign(c, data); localDataProvider.setClients(list); }
+      return c;
+    } else {
+      const c = firestoreCache.clients.find(x => x.id === id);
+      if (!c) throw new Error(`Client not found: ${id}`);
+      await firestoreDataProvider.writeDoc('clients', id, data);
+      Object.assign(c, data);
+      return c;
+    }
   }
 };
 
 const venueService = {
   getAll() {
-    return storageService.get('choirProtoVenues', initialVenues);
+    if (isDemoMode()) return localDataProvider.getVenues();
+    return firestoreCache.venues;
   },
   getById(id) {
     if (!id) return null;
     return this.getAll().find(v => v.id === id) || null;
   },
-  getOrCreateByName(name, city = 'Chennai', state = 'Tamil Nadu') {
-    if (!name || !name.trim()) return null;
-    const cleanName = name.trim();
-    const venues = this.getAll();
-    let match = venues.find(v => v.name.toLowerCase() === cleanName.toLowerCase());
-    if (!match) {
-      match = { id: generateId('venue'), name: cleanName, city: city || '', state: state || '', active: true };
-      venues.push(match);
-      storageService.set('choirProtoVenues', venues);
-    }
-    return match;
-  },
-  create(data) {
-    const venues = this.getAll();
+  async create(data) {
     const newVenue = {
       id: generateId('venue'),
       name: data.name.trim(),
@@ -846,64 +694,75 @@ const venueService = {
       state: data.state || 'Tamil Nadu',
       active: true
     };
-    venues.push(newVenue);
-    storageService.set('choirProtoVenues', venues);
-    return newVenue;
-  },
-  update(id, data) {
-    const venues = this.getAll();
-    const v = venues.find(x => x.id === id);
-    if (v) {
-      Object.assign(v, data);
-      storageService.set('choirProtoVenues', venues);
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getVenues();
+      list.push(newVenue);
+      localDataProvider.setVenues(list);
+      return newVenue;
+    } else {
+      await firestoreDataProvider.writeDoc('venues', newVenue.id, newVenue);
+      firestoreCache.venues.push(newVenue);
+      return newVenue;
     }
-    return v;
+  },
+  async update(id, data) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getVenues();
+      const v = list.find(x => x.id === id);
+      if (v) { Object.assign(v, data); localDataProvider.setVenues(list); }
+      return v;
+    } else {
+      const v = firestoreCache.venues.find(x => x.id === id);
+      if (!v) throw new Error(`Venue not found: ${id}`);
+      await firestoreDataProvider.writeDoc('venues', id, data);
+      Object.assign(v, data);
+      return v;
+    }
   }
 };
 
 const eventTypeService = {
   getAll() {
-    return storageService.get('choirProtoEventTypes', defaultEventTypes);
+    if (isDemoMode()) return localDataProvider.getEventTypes();
+    return firestoreCache.eventTypes.length ? firestoreCache.eventTypes : defaultEventTypes;
   },
   getById(id) {
     if (!id) return defaultEventTypes[0];
     return this.getAll().find(t => t.id === id) || defaultEventTypes[0];
   },
-  getByWorkType(workType) {
-    if (!workType) return defaultEventTypes[0];
-    const wt = workType.toLowerCase();
-    const all = this.getAll();
-    if (wt.includes('perf')) return all.find(t => t.id === 'event_type_performance') || all[0];
-    if (wt.includes('rec')) return all.find(t => t.id === 'event_type_recording') || all[0];
-    if (wt.includes('reh')) return all.find(t => t.id === 'event_type_rehearsal') || all[0];
-    if (wt.includes('shoot')) return all.find(t => t.id === 'event_type_shoot') || all[0];
-    if (wt.includes('sound')) return all.find(t => t.id === 'event_type_soundcheck') || all[0];
-    return all.find(t => t.name.toLowerCase() === wt) || all[0];
-  },
-  create(name) {
-    const all = this.getAll();
-    const cleanName = name.trim();
-    let match = all.find(t => t.name.toLowerCase() === cleanName.toLowerCase());
-    if (!match) {
-      match = { id: generateId('event_type'), name: cleanName, active: true };
-      all.push(match);
-      storageService.set('choirProtoEventTypes', all);
+  async create(input) {
+    const cleanName = (typeof input === 'string' ? input : (input && input.name) || '').trim();
+    const newEventType = {
+      id: generateId('event_type'),
+      name: cleanName,
+      active: true
+    };
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getEventTypes();
+      list.push(newEventType);
+      localDataProvider.setEventTypes(list);
+      return newEventType;
+    } else {
+      await firestoreDataProvider.writeDoc('eventTypes', newEventType.id, newEventType);
+      firestoreCache.eventTypes.push(newEventType);
+      return newEventType;
     }
-    return match;
   }
 };
 
 const eventService = {
   getAll() {
-    return storageService.get('choirProtoEvents', initialEvents);
+    if (isDemoMode()) return localDataProvider.getEvents();
+    return firestoreCache.events;
   },
   getById(id) {
-    return this.getAll().find(e => e.id === Number(id)) || null;
+    return this.getAll().find(e => String(e.id) === String(id)) || null;
   },
-  create(data) {
-    const events = this.getAll();
+  async create(data) {
     const newEvent = {
-      id: Date.now(),
+      id: data.id || Date.now(),
       status: data.status || 'enquiry',
       name: data.name || '',
       eventTypeId: data.eventTypeId || 'event_type_unspecified',
@@ -919,27 +778,44 @@ const eventService = {
       notes: data.notes || '',
       managers: data.managers || [],
       assignedSingers: data.assignedSingers || [],
-      isDemoFixture: data.isDemoFixture || false
+      isDemoFixture: isDemoMode() ? (data.isDemoFixture || false) : false
     };
-    events.push(newEvent);
-    storageService.set('choirProtoEvents', events);
-    return newEvent;
-  },
-  update(id, data) {
-    const events = this.getAll();
-    const e = events.find(x => x.id === Number(id));
-    if (e) {
-      Object.assign(e, data);
-      storageService.set('choirProtoEvents', events);
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getEvents();
+      list.push(newEvent);
+      localDataProvider.setEvents(list);
+      return newEvent;
+    } else {
+      await firestoreDataProvider.writeDoc('events', String(newEvent.id), newEvent);
+      firestoreCache.events.push(newEvent);
+      return newEvent;
     }
-    return e;
   },
-  delete(id) {
-    let events = this.getAll();
-    events = events.filter(e => e.id !== Number(id));
-    storageService.set('choirProtoEvents', events);
+  async update(id, data) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getEvents();
+      const e = list.find(x => String(x.id) === String(id));
+      if (e) { Object.assign(e, data); localDataProvider.setEvents(list); }
+      return e;
+    } else {
+      const e = firestoreCache.events.find(x => String(x.id) === String(id));
+      if (!e) throw new Error(`Event not found: ${id}`);
+      await firestoreDataProvider.writeDoc('events', String(id), data);
+      Object.assign(e, data);
+      return e;
+    }
   },
-  duplicate(id, newDate, copyLineup = false) {
+  async delete(id) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getEvents().filter(e => String(e.id) !== String(id));
+      localDataProvider.setEvents(list);
+    } else {
+      await firestoreDataProvider.deleteDoc('events', String(id));
+      firestoreCache.events = firestoreCache.events.filter(e => String(e.id) !== String(id));
+    }
+  },
+  async duplicate(id, newDate, copyLineup = false) {
     const orig = this.getById(id);
     if (!orig) return null;
 
@@ -948,9 +824,7 @@ const eventService = {
       status: 'Not asked'
     })) : [];
 
-    const newManagers = copyLineup ? [...(orig.managers || [])] : [];
-
-    return this.create({
+    return await this.create({
       status: 'enquiry',
       name: orig.name ? `${orig.name} (Copy)` : 'Untitled Show (Copy)',
       eventTypeId: orig.eventTypeId,
@@ -964,12 +838,12 @@ const eventService = {
       budget: orig.budget || 0,
       language: orig.language || '',
       notes: orig.notes || '',
-      managers: newManagers,
+      managers: [],
       assignedSingers: newAssignedSingers,
       isDemoFixture: false
     });
   },
-  copyLineup(targetEventId, sourceEventId) {
+  async copyLineup(targetEventId, sourceEventId) {
     const target = this.getById(targetEventId);
     const source = this.getById(sourceEventId);
     if (!target || !source) return null;
@@ -987,7 +861,7 @@ const eventService = {
       }
     });
 
-    return this.update(targetEventId, { assignedSingers: merged });
+    return await this.update(targetEventId, { assignedSingers: merged });
   }
 };
 
@@ -1032,3 +906,21 @@ function getSingerHistory(personId) {
     })
   };
 }
+
+// Global Browser Exports
+window.authService = authService;
+window.firestoreDataProvider = firestoreDataProvider;
+window.localDataProvider = localDataProvider;
+window.peopleService = peopleService;
+window.tagService = tagService;
+window.clientService = clientService;
+window.venueService = venueService;
+window.eventTypeService = eventTypeService;
+window.eventService = eventService;
+window.cityService = cityService;
+window.getSingerHistory = getSingerHistory;
+window.getPersonById = getPersonById;
+window.getClientById = getClientById;
+window.getVenueById = getVenueById;
+window.getEventTypeById = getEventTypeById;
+

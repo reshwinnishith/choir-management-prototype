@@ -3,138 +3,195 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Choir Manager — v1.6A Data Foundation</title>
+  <title>Choir Manager — v1.7 Firebase Production Workspace</title>
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase Web SDK v10 (CDN ES Modules) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    window.FirebaseSDK = {
+      initializeApp,
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator,
+      getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence
+    };
+
+    if (window.authService) {
+      window.authService.init((user, isDemo) => {
+        if (window.onAuthResolved) window.onAuthResolved(user, isDemo);
+      });
+    }
+  </script>
 </head>
 <body>
 <div class="phone">
 
-  <!-- HOME SCREEN -->
-  <div id="home" class="screen active">
-    <div class="top">
-      <div class="top-header-row">
-        <div>
-          <div class="eyebrow">Choir Manager</div>
-          <h1>Good afternoon 👋</h1>
-        </div>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
-      </div>
-      <div class="sub">September enquiries, shows, lineups & roster.</div>
+  <!-- MANAGER AUTH SCREEN -->
+  <div id="authScreen" class="screen active" style="padding: 24px 20px; background: var(--bg); display: block;">
+    <div style="text-align: center; margin-top: 36px; margin-bottom: 24px;">
+      <div style="font-size: 42px; margin-bottom: 8px;">🎶</div>
+      <div class="eyebrow">Choir Manager</div>
+      <h1 style="font-size: 26px; margin-top: 4px;">Manager Workspace</h1>
+      <div class="sub" style="margin-top: 6px;">Sign in to your production choir workspace.</div>
     </div>
-    <div class="content">
-      <div class="grid2">
-        <div class="stat"><span class="muted">September enquiries</span><b id="statEnq">0</b></div>
-        <div class="stat"><span class="muted">Confirmed shows</span><b id="statShows">0</b></div>
-      </div>
-      <div class="quick">
-        <button class="btn primary" onclick="openNew('enquiry')">＋ New enquiry<br><span style="font-weight:500;opacity:.75">Save quick details</span></button>
-        <button class="btn soft" onclick="openNew('confirmed')">＋ Confirmed show<br><span style="font-weight:500;opacity:.75">Add to calendar</span></button>
+
+    <div class="card compact" style="padding: 20px;">
+      <div id="authTabHeader" class="row between" style="margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 10px;">
+        <button id="authTabSignIn" type="button" class="btn soft small full" style="flex: 1; font-weight: 700;" onclick="switchAuthTab('signin')">Sign In</button>
+        <button id="authTabSignUp" type="button" class="btn ghost small full" style="flex: 1; font-weight: 700;" onclick="switchAuthTab('signup')">Create Account</button>
       </div>
 
-      <!-- Needs Attention Section -->
-      <div class="section row between">
-        <h2>Needs Attention</h2>
-      </div>
-      <div id="needsAttentionList"></div>
+      <div id="authNotice" class="notice" style="display: none; margin-bottom: 12px; font-size: 13px;"></div>
 
-      <!-- Upcoming Events Section -->
-      <div class="section row between">
-        <h2>Upcoming Events</h2>
-        <span class="meta" onclick="go('calendar')">View calendar →</span>
+      <label>Email Address *</label>
+      <input id="authEmail" type="email" placeholder="manager@choir.org" style="margin-bottom: 12px;">
+
+      <label>Password *</label>
+      <input id="authPassword" type="password" placeholder="••••••••" style="margin-bottom: 16px;">
+
+      <div id="signUpExtraFields" style="display: none;">
+        <label>Manager / Choir Name</label>
+        <input id="authDisplayName" type="text" placeholder="e.g. Staccato Choir" style="margin-bottom: 16px;">
       </div>
-      <div id="homeEvents"></div>
+
+      <button id="authSubmitBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px;" onclick="handleAuthSubmit()">Sign In to Workspace</button>
+    </div>
+
+    <div style="text-align: center; margin-top: 24px;">
+      <a href="?demo=1" style="font-size: 12px; color: var(--muted); text-decoration: underline;">Open Developer Local Demo Mode (?demo=1)</a>
     </div>
   </div>
 
-  <!-- CALENDAR SCREEN -->
-  <div id="calendar" class="screen">
-    <div class="top">
-      <div class="top-header-row">
-        <div>
-          <div class="eyebrow" id="calTopEyebrow">Calendar View</div>
-          <h1 id="calHeading">Calendar</h1>
-        </div>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
-      </div>
-      <div class="sub">Yellow = enquiry · Green = confirmed show.</div>
-    </div>
-    <div class="content">
-      <div class="calendar">
-        <!-- Month Navigation Bar -->
-        <div class="cal-nav-bar">
-          <button type="button" class="btn ghost small" onclick="changeCalMonth(-1)">❮</button>
-          <h3 id="calMonthTitle">September 2026</h3>
-          <div class="row" style="gap:4px">
-            <button type="button" class="btn ghost small" onclick="resetCalMonth()">Today</button>
-            <button type="button" class="btn ghost small" onclick="changeCalMonth(1)">❯</button>
+  <!-- MAIN APP CONTAINER -->
+  <div id="appContainer" style="display: none;">
+    <!-- HOME SCREEN -->
+    <div id="home" class="screen">
+      <div class="top">
+        <div class="top-header-row">
+          <div>
+            <div class="eyebrow" id="homeTopEyebrow">Choir Manager</div>
+            <h1 id="homeWelcomeTitle">Good day 👋</h1>
           </div>
+          <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         </div>
-        <div class="cal-head"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
-        <div id="calGrid" class="cal-grid"></div>
+        <div class="sub" id="homeSubHeader">Enquiries, shows, lineups & roster.</div>
       </div>
-      <div class="section row between">
-        <h2>Events this month</h2>
-        <span class="meta" id="monthCount">0 entries</span>
-      </div>
-      <div id="calendarEvents"></div>
-    </div>
-  </div>
-
-  <!-- SINGERS SCREEN -->
-  <!-- SINGERS / ROSTER SCREEN -->
-  <div id="singers" class="screen">
-    <div class="top">
-      <div class="top-header-row">
-        <div>
-          <div class="eyebrow">Choir Roster</div>
-          <h1>Roster</h1>
+      <div class="content">
+        <div class="grid2">
+          <div class="stat"><span class="muted">Month enquiries</span><b id="statEnq">0</b></div>
+          <div class="stat"><span class="muted">Confirmed shows</span><b id="statShows">0</b></div>
         </div>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
-      </div>
-      <div class="sub">Filter by membership, language & eligibility.</div>
-    </div>
-    <div class="content">
-      <div class="row" style="margin-bottom:12px; gap:8px">
-        <button class="btn soft full" style="flex:1" onclick="openNewSinger()">＋ Add new singer</button>
-        <button class="btn ghost" onclick="openTagManager()">🏷️ Tags</button>
-      </div>
-      
-      <div class="row" style="gap:8px; margin-bottom:10px">
-        <input type="text" id="singerSearch" placeholder="Search roster..." oninput="renderSingers()" style="flex:1">
-        <button type="button" id="btnRosterFilterToggle" class="btn ghost" style="padding:10px 12px; white-space:nowrap" onclick="openFilterSheet()">⚡ Filters</button>
-      </div>
-      
-      <!-- Active Filters Display Bar -->
-      <div id="singerActiveFilterDisplay" style="margin-bottom:10px"></div>
-
-      <div id="singerList"></div>
-    </div>
-  </div>
-
-  <!-- STATISTICS SCREEN -->
-  <div id="statistics" class="screen">
-    <div class="top">
-      <div class="top-header-row">
-        <div>
-          <div class="eyebrow">Roster Analytics</div>
-          <h1>Statistics</h1>
+        <div class="quick">
+          <button class="btn primary" onclick="openNew('enquiry')">＋ New enquiry<br><span style="font-weight:500;opacity:.75">Save quick details</span></button>
+          <button class="btn soft" onclick="openNew('confirmed')">＋ Confirmed show<br><span style="font-weight:500;opacity:.75">Add to calendar</span></button>
         </div>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+
+        <!-- Needs Attention Section -->
+        <div class="section row between">
+          <h2>Needs Attention</h2>
+        </div>
+        <div id="needsAttentionList"></div>
+
+        <!-- Upcoming Events Section -->
+        <div class="section row between">
+          <h2>Upcoming Events</h2>
+          <span class="meta" onclick="go('calendar')">View calendar →</span>
+        </div>
+        <div id="homeEvents"></div>
       </div>
-      <div class="sub">Objective show counts, rotation & roster strength.</div>
     </div>
-    <div class="content" id="statisticsBody"></div>
-  </div>
 
-  <!-- FAB -->
-  <button id="fab" class="fab" onclick="openNew('enquiry')" aria-label="New enquiry">+</button>
+    <!-- CALENDAR SCREEN -->
+    <div id="calendar" class="screen">
+      <div class="top">
+        <div class="top-header-row">
+          <div>
+            <div class="eyebrow" id="calTopEyebrow">Calendar View</div>
+            <h1 id="calHeading">Calendar</h1>
+          </div>
+          <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
+        <div class="sub">Yellow = enquiry · Green = confirmed show.</div>
+      </div>
+      <div class="content">
+        <div class="calendar">
+          <!-- Month Navigation Bar -->
+          <div class="cal-nav-bar">
+            <button type="button" class="btn ghost small" onclick="changeCalMonth(-1)">❮</button>
+            <h3 id="calMonthTitle">September 2026</h3>
+            <div class="row" style="gap:4px">
+              <button type="button" class="btn ghost small" onclick="resetCalMonth()">Today</button>
+              <button type="button" class="btn ghost small" onclick="changeCalMonth(1)">❯</button>
+            </div>
+          </div>
+          <div class="cal-head"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+          <div id="calGrid" class="cal-grid"></div>
+        </div>
+        <div class="section row between">
+          <h2>Events this month</h2>
+          <span class="meta" id="monthCount">0 entries</span>
+        </div>
+        <div id="calendarEvents"></div>
+      </div>
+    </div>
 
-  <!-- BOTTOM NAVIGATION -->
-  <div class="nav">
-    <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
-    <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
-    <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Singers</button>
-    <button data-screen="statistics" onclick="go('statistics')"><span class="ico">📊</span>Statistics</button>
+    <!-- SINGERS / ROSTER SCREEN -->
+    <div id="singers" class="screen">
+      <div class="top">
+        <div class="top-header-row">
+          <div>
+            <div class="eyebrow">Choir Roster</div>
+            <h1>Roster</h1>
+          </div>
+          <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
+        <div class="sub">Filter by membership, language & eligibility.</div>
+      </div>
+      <div class="content">
+        <div class="row" style="margin-bottom:12px; gap:8px">
+          <button class="btn soft full" style="flex:1" onclick="openNewSinger()">＋ Add new singer</button>
+          <button class="btn ghost" onclick="openTagManager()">🏷️ Tags</button>
+        </div>
+        
+        <div class="row" style="gap:8px; margin-bottom:10px">
+          <input type="text" id="singerSearch" placeholder="Search roster..." oninput="renderSingers()" style="flex:1">
+          <button type="button" id="btnRosterFilterToggle" class="btn ghost" style="padding:10px 12px; white-space:nowrap" onclick="openFilterSheet()">⚡ Filters</button>
+        </div>
+        
+        <!-- Active Filters Display Bar -->
+        <div id="singerActiveFilterDisplay" style="margin-bottom:10px"></div>
+
+        <div id="singerList"></div>
+      </div>
+    </div>
+
+    <!-- STATISTICS SCREEN -->
+    <div id="statistics" class="screen">
+      <div class="top">
+        <div class="top-header-row">
+          <div>
+            <div class="eyebrow">Roster Analytics</div>
+            <h1>Statistics</h1>
+          </div>
+          <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+        </div>
+        <div class="sub">Objective show counts, rotation & roster strength.</div>
+      </div>
+      <div class="content" id="statisticsBody"></div>
+    </div>
+
+    <!-- FAB -->
+    <button id="fab" class="fab" onclick="openNew('enquiry')" aria-label="New enquiry">+</button>
+
+    <!-- BOTTOM NAVIGATION -->
+    <div class="nav">
+      <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
+      <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
+      <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Singers</button>
+      <button data-screen="statistics" onclick="go('statistics')"><span class="ico">📊</span>Statistics</button>
+    </div>
   </div>
 </div>
 
@@ -145,49 +202,53 @@
     <div class="row between">
       <div>
         <div class="eyebrow" id="newEyebrow">Event Form</div>
-        <h2 id="newTitle">Save Event Details</h2>
+        <h2 id="newTitle">New Event</h2>
       </div>
       <button class="btn ghost small" onclick="closeModal('newModal')">Close</button>
     </div>
 
     <!-- Status Selector -->
-    <div class="status-toggle">
-      <button type="button" id="statusBtnEnquiry" class="active enquiry" onclick="setFormStatus('enquiry')">🟡 Enquiry</button>
-      <button type="button" id="statusBtnConfirmed" class="confirmed" onclick="setFormStatus('confirmed')">🟢 Confirmed</button>
+    <div class="segmented-picker" style="margin-top:10px">
+      <button type="button" id="statusBtnEnquiry" class="active" onclick="setFormStatus('enquiry')">Enquiry Draft</button>
+      <button type="button" id="statusBtnConfirmed" onclick="setFormStatus('confirmed')">Confirmed Show</button>
     </div>
 
-    <!-- Client (Mandatory) -->
+    <!-- Mandatory Client & Event Type Section -->
+    <div class="form-section-title">Client & Event Type</div>
     <label>Client *</label>
     <div class="picker-field" onclick="openClientPickerModal()">
       <span id="formClientDisplay" class="picker-val placeholder">Select client...</span>
       <span class="picker-arrow">❯</span>
     </div>
 
-    <!-- Show / Event Name (Optional) -->
-    <label style="margin-top:10px">Show / Event Name <span class="muted" style="font-weight:400">(Optional)</span></label>
-    <input id="fName" placeholder="e.g. Sardar Audio Launch, Annual Gala">
-
-    <!-- Event Type -->
-    <label>Event Type</label>
-    <div class="picker-field" onclick="openEventTypePickerModal()">
-      <span id="formEventTypeDisplay" class="picker-val">Performance</span>
-      <span class="picker-arrow">❯</span>
+    <div class="form2" style="margin-top:10px">
+      <div>
+        <label>Show Name</label>
+        <input id="fName" placeholder="e.g. Wedding Gala / Audio Launch">
+      </div>
+      <div>
+        <label>Event Type</label>
+        <div class="picker-field" onclick="openEventTypePickerModal()">
+          <span id="formEventTypeDisplay" class="picker-val">Performance</span>
+          <span class="picker-arrow">❯</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Date & Time -->
-    <div class="form2" style="margin-top:4px">
+    <!-- Date, Time & Location Section -->
+    <div class="form-section-title">Date & Venue</div>
+    <div class="form2">
       <div><label>Date *</label><input id="fDate" type="date"></div>
-      <div><label>Show Time</label><input id="fTime" type="time"></div>
+      <div><label>Time</label><input id="fTime" type="text" placeholder="e.g. 18:30"></div>
     </div>
 
-    <!-- Venue & Location -->
     <label>Venue</label>
     <div class="picker-field" onclick="openVenuePickerModal()">
-      <span id="formVenueDisplay" class="picker-val placeholder">Select venue...</span>
+      <span id="formVenueDisplay" class="picker-val placeholder">Venue TBC</span>
       <span class="picker-arrow">❯</span>
     </div>
 
-    <div class="form2" style="margin-top:4px">
+    <div class="form2" style="margin-top:10px">
       <div>
         <label>City</label>
         <div class="picker-field" onclick="openCityPickerModal('event')">
@@ -399,7 +460,6 @@
   </div>
 </div>
 
-
 <!-- MODAL: EVENT DETAILS & LINEUP -->
 <div id="detailModal" class="modalwrap" onclick="if(event.target===this)closeModalSafe('detailModal')">
   <div class="modal" id="detailBody"></div>
@@ -526,33 +586,35 @@
   </div>
 </div>
 
-<!-- MODAL: SETTINGS & VERSION HISTORY -->
+<!-- MODAL: SETTINGS & ACCOUNT INFORMATION -->
 <div id="settingsModal" class="modalwrap" onclick="if(event.target===this)closeModal('settingsModal')">
   <div class="modal">
     <div class="handle"></div>
     <div class="row between">
       <div>
-        <div class="eyebrow">System Utility</div>
-        <h2>Settings & Versions</h2>
+        <div class="eyebrow">Account & Settings</div>
+        <h2>Workspace Settings</h2>
       </div>
       <button class="btn ghost small" onclick="closeModal('settingsModal')">Close</button>
     </div>
 
     <div class="card compact" style="margin-top:14px">
-      <div class="row between"><div class="title">v1.6A</div><span class="pill confirmed">Active Version</span></div>
-      <div class="muted" style="margin-top:6px">
-        - Data Foundation & Firebase Readiness.<br>
-        - Service & Storage Abstraction Layer (`services.js`).<br>
-        - Stable ID Relationships (`personId`, `clientId`, `venueId`, `eventTypeId`).<br>
-        - Reusable Client & Venue Entities.<br>
-        - Unified EventType Model (`event_type_*`).<br>
-        - Non-destructive Schema Migration Pipeline (`1.6A`).<br>
-        - Corrected Singer-Only History & Statistics (manager appearances excluded).<br>
-        - Assignment/replacement additions default to `Not asked`.
+      <div class="row between align-center">
+        <div>
+          <div class="title" id="settingsAccountEmail">Manager Account</div>
+          <div class="tiny" style="color:var(--muted)" id="settingsModeBadge">Firebase Production Mode</div>
+        </div>
+        <span class="pill confirmed" id="settingsStatusPill">Active</span>
       </div>
     </div>
 
-    <button class="btn danger full" style="margin-top:24px" onclick="resetApp()">Start Fresh (Reset to Seed Data)</button>
+    <div style="margin-top:16px" id="productionSignOutContainer">
+      <button class="btn danger full" onclick="handleSignOut()">Sign Out</button>
+    </div>
+
+    <div id="demoResetContainer" style="display:none; margin-top:16px">
+      <button class="btn soft full" onclick="resetApp()">Start Fresh (Reset Demo Data)</button>
+    </div>
   </div>
 </div>
 
@@ -660,7 +722,7 @@
 <!-- TOAST NOTIFICATION CONTAINER -->
 <div class="toast-container"><div id="toast" class="toast">Saved</div></div>
 
-
+<script src="firebase-config.js"></script>
 <script src="india-cities.js"></script>
 <script src="services.js"></script>
 <script src="app.js"></script>

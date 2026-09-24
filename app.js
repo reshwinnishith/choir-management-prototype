@@ -1,9 +1,14 @@
-// Choir Manager - v1.6D Overnight Pass
+// Choir Manager - v1.7 Firebase Production Workspace & UI Controller
+
+function isDemoMode() {
+  return window.location.search.includes('demo=1') || localStorage.getItem('choirForceDemo') === 'true';
+}
 
 // Local State References (Managed via Services Layer)
-let people = peopleService.getAll();
-let events = eventService.getAll();
-let tags = tagService.getAll();
+
+let people = [];
+let events = [];
+let tags = [];
 let looks = storageService.get('choirProtoLooks', []);
 
 let selectedRosterTagIds = [];
@@ -20,6 +25,7 @@ let calNavDate = new Date();
 let assignmentTargetPersonId = null;
 let swapTargetPersonId = null;
 let swapFilterTagIds = [];
+let currentAuthTab = 'signin';
 
 // Toast Notification
 function showToast(msg) {
@@ -30,6 +36,139 @@ function showToast(msg) {
   setTimeout(() => {
     el.classList.remove('show');
   }, 2200);
+}
+
+// --------------------------------------------------
+// AUTHENTICATION & WORKSPACE RESOLUTION (v1.7)
+// --------------------------------------------------
+
+window.onAuthResolved = function(user, isDemo) {
+  const authScreen = document.getElementById('authScreen');
+  const appContainer = document.getElementById('appContainer');
+
+  if (isDemo || user) {
+    if (authScreen) authScreen.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'block';
+
+    const topEyebrow = document.getElementById('homeTopEyebrow');
+    const welcomeTitle = document.getElementById('homeWelcomeTitle');
+    const subHeader = document.getElementById('homeSubHeader');
+
+    if (isDemo) {
+      if (topEyebrow) topEyebrow.textContent = 'Choir Manager (Local Demo)';
+      if (welcomeTitle) welcomeTitle.textContent = 'Demo Mode 🧪';
+      if (subHeader) subHeader.textContent = 'Local prototype dataset (?demo=1 active).';
+    } else if (user) {
+      if (topEyebrow) topEyebrow.textContent = 'Production Workspace';
+      if (welcomeTitle) welcomeTitle.textContent = `Hello, ${user.displayName || user.email.split('@')[0]} 👋`;
+      if (subHeader) subHeader.textContent = `${user.email} · Cloud Sync Active`;
+    }
+
+    render();
+  } else {
+    if (authScreen) authScreen.style.display = 'block';
+    if (appContainer) appContainer.style.display = 'none';
+
+    // Section 13: Unconfigured backend notice helper
+    const config = window.FIREBASE_WEB_CONFIG;
+    if (config && config.apiKey && config.apiKey.includes('YOUR_API_KEY') && !window.USE_FIREBASE_EMULATOR) {
+      const notice = document.getElementById('authNotice');
+      if (notice) {
+        notice.textContent = 'Cloud backend is not configured yet. Please update firebase-config.js with your project credentials or add ?demo=1 to URL for Local Demo Mode.';
+        notice.style.display = 'block';
+      }
+    }
+  }
+};
+
+
+function switchAuthTab(mode) {
+  currentAuthTab = mode;
+  const btnSignIn = document.getElementById('authTabSignIn');
+  const btnSignUp = document.getElementById('authTabSignUp');
+  const extraFields = document.getElementById('signUpExtraFields');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const notice = document.getElementById('authNotice');
+
+  if (notice) notice.style.display = 'none';
+
+  if (mode === 'signin') {
+    if (btnSignIn) { btnSignIn.className = 'btn soft small full'; }
+    if (btnSignUp) { btnSignUp.className = 'btn ghost small full'; }
+    if (extraFields) extraFields.style.display = 'none';
+    if (submitBtn) submitBtn.textContent = 'Sign In to Workspace';
+  } else {
+    if (btnSignIn) { btnSignIn.className = 'btn ghost small full'; }
+    if (btnSignUp) { btnSignUp.className = 'btn soft small full'; }
+    if (extraFields) extraFields.style.display = 'block';
+    if (submitBtn) submitBtn.textContent = 'Create Production Workspace';
+  }
+}
+
+async function handleAuthSubmit() {
+  const emailInput = document.getElementById('authEmail');
+  const passwordInput = document.getElementById('authPassword');
+  const displayNameInput = document.getElementById('authDisplayName');
+  const notice = document.getElementById('authNotice');
+  const submitBtn = document.getElementById('authSubmitBtn');
+
+  const email = (emailInput?.value || '').trim();
+  const password = (passwordInput?.value || '').trim();
+  const displayName = (displayNameInput?.value || '').trim();
+
+  if (!email || !password) {
+    if (notice) {
+      notice.textContent = 'Please enter email and password.';
+      notice.style.display = 'block';
+    }
+    return;
+  }
+
+  if (password.length < 6) {
+    if (notice) {
+      notice.textContent = 'Password must be at least 6 characters.';
+      notice.style.display = 'block';
+    }
+    return;
+  }
+
+  if (notice) notice.style.display = 'none';
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Authenticating...'; }
+
+  try {
+    if (currentAuthTab === 'signin') {
+      await authService.signIn(email, password);
+    } else {
+      await authService.signUp(email, password, displayName);
+    }
+  } catch (err) {
+    console.error('[Auth Error]:', err);
+    let errMsg = 'Authentication failed. Please check credentials.';
+    if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      errMsg = 'Invalid email or password.';
+    } else if (err.code === 'auth/email-already-in-use') {
+      errMsg = 'An account with this email already exists. Try signing in.';
+    } else if (err.message) {
+      errMsg = err.message;
+    }
+
+    if (notice) {
+      notice.textContent = errMsg;
+      notice.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = currentAuthTab === 'signin' ? 'Sign In to Workspace' : 'Create Production Workspace';
+    }
+  }
+}
+
+async function handleSignOut() {
+  closeModal('settingsModal');
+  await authService.signOut();
+  showToast('Signed out of workspace');
+  window.onAuthResolved(null, isDemoMode());
 }
 
 // 3-Column Reusable Person Row Generator
@@ -184,7 +323,6 @@ function eventCard(e) {
 
 // Main Render Function
 function render() {
-  // Sync state from services
   people = peopleService.getAll();
   events = eventService.getAll();
   tags = tagService.getAll();
@@ -194,7 +332,7 @@ function render() {
   const todayStr = now.toISOString().split('T')[0];
 
   // Home Stats & Events
-  const monthEvents = events.filter(e => e.date.startsWith(curMonthStr));
+  const monthEvents = events.filter(e => e.date && e.date.startsWith(curMonthStr));
   const statEnqEl = document.getElementById('statEnq');
   const statShowsEl = document.getElementById('statShows');
   if (statEnqEl) statEnqEl.textContent = monthEvents.filter(e => e.status === 'enquiry').length;
@@ -202,26 +340,31 @@ function render() {
 
   // Upcoming Events Fix: Filter date >= today, sort ascending by date
   const upcomingEvents = [...events]
-    .filter(e => e.date >= todayStr)
+    .filter(e => e.date && e.date >= todayStr)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const homeEventsEl = document.getElementById('homeEvents');
   if (homeEventsEl) {
-    homeEventsEl.innerHTML = upcomingEvents.length
-      ? upcomingEvents.slice(0, 5).map(eventCard).join('')
-      : '<div class="empty">No upcoming events scheduled.</div>';
+    if (upcomingEvents.length) {
+      homeEventsEl.innerHTML = upcomingEvents.slice(0, 5).map(eventCard).join('');
+    } else {
+      homeEventsEl.innerHTML = `
+        <div class="empty" style="padding:20px; text-align:center">
+          <div style="font-size:24px; margin-bottom:6px">📅</div>
+          <b>No upcoming events scheduled.</b>
+          <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Create your first show enquiry or confirmed event.</div>
+          <div class="row align-center justify-center" style="gap:8px">
+            <button class="btn primary small" onclick="openNew('enquiry')">+ New Enquiry</button>
+            <button class="btn soft small" onclick="openNew('confirmed')">+ Confirmed Show</button>
+          </div>
+        </div>
+      `;
+    }
   }
 
-  // Render Needs Attention
   renderNeedsAttention();
-
-  // Calendar Screen
   renderCalendar();
-
-  // Singers Screen
   renderSingers();
-
-  // Statistics Screen
   renderStatistics();
 }
 
@@ -329,7 +472,7 @@ function renderCalendar() {
     `);
   }
 
-  const calEvents = events.filter(e => e.date.startsWith(navMonthStr)).sort((a, b) => a.date.localeCompare(b.date));
+  const calEvents = events.filter(e => e.date && e.date.startsWith(navMonthStr)).sort((a, b) => a.date.localeCompare(b.date));
   const calEventsEl = document.getElementById('calendarEvents');
   if (calEventsEl) {
     calEventsEl.innerHTML = calEvents.length ? calEvents.map(eventCard).join('') : '<div class="empty">No events scheduled this month.</div>';
@@ -449,7 +592,18 @@ function renderSingers() {
   if (!listEl) return;
 
   if (!filtered.length) {
-    listEl.innerHTML = '<div class="empty">No singers found matching filters.</div>';
+    if (isDemoMode()) {
+      listEl.innerHTML = '<div class="empty">No singers found matching filters.</div>';
+    } else {
+      listEl.innerHTML = `
+        <div class="empty" style="padding:20px; text-align:center">
+          <div style="font-size:24px; margin-bottom:6px">♫</div>
+          <b>No singers in workspace yet.</b>
+          <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Add your first choir member to start building lineups.</div>
+          <button class="btn primary small" onclick="openNewSinger()">+ Add Singer</button>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -552,12 +706,17 @@ function openPersonDetail(personId) {
   document.getElementById('personDetailModal').classList.add('open');
 }
 
-function togglePersonActive(personId) {
+async function togglePersonActive(personId) {
   const p = peopleService.getById(personId);
   if (!p) return;
-  peopleService.update(personId, { active: p.active === false ? true : false });
-  openPersonDetail(personId);
-  renderSingers();
+  try {
+    await peopleService.update(personId, { active: p.active === false ? true : false });
+    openPersonDetail(personId);
+    renderSingers();
+  } catch (err) {
+    console.error('Failed to update singer status:', err);
+    alert('Failed to update singer status: ' + err.message);
+  }
 }
 
 // Collapsed Tag Filter Sheet
@@ -635,10 +794,10 @@ function renderStatistics() {
   let periodLabel = 'All Time';
 
   if (currentStatsPeriod === 'month') {
-    filteredEvents = realEvents.filter(e => e.date.startsWith(curMonthStr));
+    filteredEvents = realEvents.filter(e => e.date && e.date.startsWith(curMonthStr));
     periodLabel = now.toLocaleString('en', { month: 'long', year: 'numeric' });
   } else if (currentStatsPeriod === 'year') {
-    filteredEvents = realEvents.filter(e => e.date.startsWith(String(curYear)));
+    filteredEvents = realEvents.filter(e => e.date && e.date.startsWith(String(curYear)));
     periodLabel = `Year ${curYear}`;
   }
 
@@ -801,8 +960,8 @@ function getBucketSingers(minShows, maxShows = minShows) {
   const curMonthStr = `${curYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   let filteredEvents = realEvents;
-  if (currentStatsPeriod === 'month') filteredEvents = realEvents.filter(e => e.date.startsWith(curMonthStr));
-  else if (currentStatsPeriod === 'year') filteredEvents = realEvents.filter(e => e.date.startsWith(String(curYear)));
+  if (currentStatsPeriod === 'month') filteredEvents = realEvents.filter(e => e.date && e.date.startsWith(curMonthStr));
+  else if (currentStatsPeriod === 'year') filteredEvents = realEvents.filter(e => e.date && e.date.startsWith(String(curYear)));
 
   const counts = {};
   people.forEach(p => counts[p.id] = 0);
@@ -1044,10 +1203,16 @@ function renderDetailModal() {
   `;
 }
 
-function confirmEvent(id) {
-  eventService.update(id, { status: 'confirmed' });
-  render();
-  openDetail(id);
+async function confirmEvent(id) {
+  try {
+    await eventService.update(id, { status: 'confirmed' });
+    render();
+    openDetail(id);
+    showToast('Event confirmed');
+  } catch (err) {
+    console.error('Failed to confirm event:', err);
+    alert('Failed to confirm event: ' + err.message);
+  }
 }
 
 function changeSingerStatus(personId, newStatus) {
@@ -1068,14 +1233,19 @@ function removeManager(personId) {
   renderDetailModal();
 }
 
-function saveLineupChanges() {
-  eventService.update(detailEventId, {
-    assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
-    managers: JSON.parse(JSON.stringify(tempManagers))
-  });
-  showToast('Lineup changes saved');
-  render();
-  renderDetailModal();
+async function saveLineupChanges() {
+  try {
+    await eventService.update(detailEventId, {
+      assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
+      managers: JSON.parse(JSON.stringify(tempManagers))
+    });
+    showToast('Lineup changes saved');
+    render();
+    renderDetailModal();
+  } catch (err) {
+    console.error('Failed to save lineup:', err);
+    alert('Failed to save lineup: ' + err.message);
+  }
 }
 
 function hasUnsavedChanges() {
@@ -1142,31 +1312,45 @@ function openAssignmentAction(personId) {
   document.getElementById('assignmentActionModal').classList.add('open');
 }
 
-function updateAssignmentStatus(newStatus) {
+async function updateAssignmentStatus(newStatus) {
   const item = (tempAssignedSingers || []).find(s => s.personId === assignmentTargetPersonId);
   if (item) {
+    const prevStatus = item.status;
     item.status = newStatus;
-    eventService.update(detailEventId, {
-      assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
-      managers: JSON.parse(JSON.stringify(tempManagers))
-    });
-    showToast('Singer status updated');
-    render();
-    renderDetailModal();
+    try {
+      await eventService.update(detailEventId, {
+        assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
+        managers: JSON.parse(JSON.stringify(tempManagers))
+      });
+      showToast('Singer status updated');
+      render();
+      renderDetailModal();
+    } catch (err) {
+      item.status = prevStatus;
+      console.error('Failed to update singer status:', err);
+      alert('Failed to update singer status: ' + err.message);
+    }
   }
   closeModal('assignmentActionModal');
 }
 
-function removeSingerFromLineupDirect(personId) {
+async function removeSingerFromLineupDirect(personId) {
+  const prevSingers = tempAssignedSingers;
   tempAssignedSingers = (tempAssignedSingers || []).filter(s => s.personId !== personId);
-  eventService.update(detailEventId, {
-    assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
-    managers: JSON.parse(JSON.stringify(tempManagers))
-  });
-  showToast('Singer removed from lineup');
-  render();
-  renderDetailModal();
-  closeModal('assignmentActionModal');
+  try {
+    await eventService.update(detailEventId, {
+      assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
+      managers: JSON.parse(JSON.stringify(tempManagers))
+    });
+    showToast('Singer removed from lineup');
+    render();
+    renderDetailModal();
+    closeModal('assignmentActionModal');
+  } catch (err) {
+    tempAssignedSingers = prevSingers;
+    console.error('Failed to remove singer:', err);
+    alert('Failed to remove singer: ' + err.message);
+  }
 }
 
 // Swap Singer / Find Replacement Modal
@@ -1246,20 +1430,26 @@ function renderSwapPickerList() {
   }).join('');
 }
 
-function executeSwapSinger(newPersonId) {
+async function executeSwapSinger(newPersonId) {
   if (swapTargetPersonId && tempAssignedSingers) {
-    tempAssignedSingers = tempAssignedSingers.filter(s => s.personId !== swapTargetPersonId);
-    // MUST set status to 'Not asked'
-    tempAssignedSingers.push({ personId: newPersonId, status: 'Not asked' });
+    const prevSingers = tempAssignedSingers;
+    const nextSingers = tempAssignedSingers.filter(s => s.personId !== swapTargetPersonId);
+    nextSingers.push({ personId: newPersonId, status: 'Not asked' });
 
-    eventService.update(detailEventId, {
-      assignedSingers: JSON.parse(JSON.stringify(tempAssignedSingers)),
-      managers: JSON.parse(JSON.stringify(tempManagers))
-    });
-    showToast('Singer swapped successfully');
-    render();
-    renderDetailModal();
-    closeModal('swapPickerModal');
+    try {
+      await eventService.update(detailEventId, {
+        assignedSingers: JSON.parse(JSON.stringify(nextSingers)),
+        managers: JSON.parse(JSON.stringify(tempManagers))
+      });
+      tempAssignedSingers = nextSingers;
+      showToast('Singer swapped successfully');
+      render();
+      renderDetailModal();
+      closeModal('swapPickerModal');
+    } catch (err) {
+      console.error('Failed to swap singer:', err);
+      alert('Failed to swap singer: ' + err.message);
+    }
   }
 }
 
@@ -1279,7 +1469,7 @@ function openDuplicateModal() {
   document.getElementById('duplicateModal').classList.add('open');
 }
 
-function executeDuplicateEvent() {
+async function executeDuplicateEvent() {
   const newDate = document.getElementById('dupDate').value;
   if (!newDate) {
     alert('Please select a new date for the duplicate event.');
@@ -1287,12 +1477,19 @@ function executeDuplicateEvent() {
   }
   const copyLineup = document.getElementById('dupCopyLineup').checked;
 
-  const newEvt = eventService.duplicate(detailEventId, newDate, copyLineup);
-  closeModal('duplicateModal');
-  closeModal('detailModal');
-  showToast('Event duplicated as enquiry draft');
-  render();
-  openDetail(newEvt.id);
+  try {
+    const newEvt = await eventService.duplicate(detailEventId, newDate, copyLineup);
+    closeModal('duplicateModal');
+    closeModal('detailModal');
+    showToast('Event duplicated as enquiry draft');
+    render();
+    if (newEvt && newEvt.id) {
+      openDetail(newEvt.id);
+    }
+  } catch (err) {
+    console.error('Failed to duplicate event:', err);
+    alert('Failed to duplicate event: ' + err.message);
+  }
 }
 
 // Copy Lineup Modal Logic
@@ -1324,18 +1521,23 @@ function openCopyLineupModal() {
   document.getElementById('copyLineupModal').classList.add('open');
 }
 
-function executeCopyLineup(sourceEventId) {
-  const updatedEvt = eventService.copyLineup(detailEventId, sourceEventId);
-  if (updatedEvt) {
-    tempAssignedSingers = JSON.parse(JSON.stringify(updatedEvt.assignedSingers || []));
-    showToast('Lineup copied from previous event');
-    render();
-    renderDetailModal();
+async function executeCopyLineup(sourceEventId) {
+  try {
+    const updatedEvt = await eventService.copyLineup(detailEventId, sourceEventId);
+    if (updatedEvt) {
+      tempAssignedSingers = JSON.parse(JSON.stringify(updatedEvt.assignedSingers || []));
+      showToast('Lineup copied from previous event');
+      render();
+      renderDetailModal();
+    }
+    closeModal('copyLineupModal');
+  } catch (err) {
+    console.error('Failed to copy lineup:', err);
+    alert('Failed to copy lineup: ' + err.message);
   }
-  closeModal('copyLineupModal');
 }
 
-// Add Singer Modal to Lineup (With Shared Tag Filtering & Default 'Not asked' Status)
+// Add Singer Modal to Lineup
 let assignModalTagIds = [];
 function openAddSingerModal() {
   assignModalTagIds = [];
@@ -1567,10 +1769,7 @@ function addSuggestedSinger(personId) {
   closeModal('suggestModal');
 }
 
-// ==================================================
-// UNIFIED EVENT FORM & PICKERS ENGINE (v1.6B)
-// ==================================================
-
+// UNIFIED EVENT FORM & PICKERS ENGINE
 let formStatus = 'enquiry';
 let formClientId = null;
 let formEventTypeId = 'event_type_performance';
@@ -1738,7 +1937,7 @@ function openEditEvent(id) {
   document.getElementById('newModal').classList.add('open');
 }
 
-function saveEvent() {
+async function saveEvent() {
   const date = document.getElementById('fDate').value;
   if (!formClientId) {
     alert('Client is mandatory for creating or editing an event. Please select a Client.');
@@ -1776,19 +1975,26 @@ function saveEvent() {
     notes
   };
 
-  if (editEventId) {
-    eventService.update(editEventId, data);
-  } else {
-    eventService.create(data);
-  }
+  try {
+    if (editEventId) {
+      await eventService.update(editEventId, data);
+      showToast('Event details updated');
+    } else {
+      await eventService.create(data);
+      showToast('New event created');
+    }
 
-  closeModal('newModal');
-  render();
+    closeModal('newModal');
+    render();
 
-  if (editEventId) {
-    openDetail(editEventId);
-  } else {
-    go('home');
+    if (editEventId) {
+      openDetail(editEventId);
+    } else {
+      go('home');
+    }
+  } catch (err) {
+    console.error('Failed to save event:', err);
+    alert('Failed to save event: ' + err.message);
   }
 }
 
@@ -1814,7 +2020,13 @@ function renderClientPickerList() {
   if (!container) return;
 
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty">No matching clients found. Click below to add a new client.</div>`;
+    container.innerHTML = `
+      <div class="empty" style="padding:20px; text-align:center">
+        <b>No clients registered yet.</b>
+        <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Add your first client to create events.</div>
+        <button type="button" class="btn primary small" onclick="toggleNewClientForm(true)">+ Add New Client</button>
+      </div>
+    `;
     return;
   }
 
@@ -1875,7 +2087,7 @@ function editClient(clientId) {
   toggleNewClientForm(true);
 }
 
-function saveNewClient() {
+async function saveNewClient() {
   const name = document.getElementById('ncName').value.trim();
   const contactName = document.getElementById('ncContact').value.trim();
   const phone = document.getElementById('ncPhone').value.trim();
@@ -1884,14 +2096,21 @@ function saveNewClient() {
 
   if (!name) return alert('Client Name is required.');
 
-  let clientObj;
-  if (editClientId) {
-    clientObj = clientService.update(editClientId, { name, contactName, phone, email, notes });
-  } else {
-    clientObj = clientService.create({ name, contactName, phone, email, notes });
-  }
+  try {
+    let clientObj;
+    if (editClientId) {
+      clientObj = await clientService.update(editClientId, { name, contactName, phone, email, notes });
+      showToast('Client details updated');
+    } else {
+      clientObj = await clientService.create({ name, contactName, phone, email, notes });
+      showToast('New client added');
+    }
 
-  selectClient(clientObj.id);
+    selectClient(clientObj.id);
+  } catch (err) {
+    console.error('Failed to save client:', err);
+    alert('Failed to save client: ' + err.message);
+  }
 }
 
 // Event Type Picker
@@ -1938,12 +2157,18 @@ function toggleNewEventTypeForm(show) {
   if (shouldShow) document.getElementById('netName').value = '';
 }
 
-function saveNewEventType() {
+async function saveNewEventType() {
   const name = document.getElementById('netName').value.trim();
   if (!name) return alert('Event Type Name is required.');
 
-  const et = eventTypeService.create({ name });
-  selectEventType(et.id);
+  try {
+    const et = await eventTypeService.create(name);
+    showToast('New event type added');
+    selectEventType(et.id);
+  } catch (err) {
+    console.error('Failed to create event type:', err);
+    alert('Failed to create event type: ' + err.message);
+  }
 }
 
 // Venue Picker
@@ -1973,6 +2198,17 @@ function renderVenuePickerList() {
       <div class="check-indicator">${isTbcSelected ? '✓' : ''}</div>
     </div>
   `;
+
+  if (filtered.length === 0) {
+    container.innerHTML = html + `
+      <div class="empty" style="padding:16px; text-align:center">
+        <b>No venues registered yet.</b>
+        <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Add your first venue or choose Venue TBC.</div>
+        <button type="button" class="btn primary small" onclick="toggleNewVenueForm(true)">+ Add New Venue</button>
+      </div>
+    `;
+    return;
+  }
 
   html += filtered.map(v => {
     const isSelected = formVenueId === v.id;
@@ -2028,7 +2264,7 @@ function toggleNewVenueForm(show) {
   }
 }
 
-function saveNewVenue() {
+async function saveNewVenue() {
   const name = document.getElementById('nvName').value.trim();
   const city = (document.getElementById('nvCityDisplay')?.textContent || '').replace('Select city...', '').trim();
   const state = document.getElementById('nvStateDisplay').value.trim();
@@ -2036,8 +2272,14 @@ function saveNewVenue() {
   if (!name) return alert('Venue Name is required.');
   if (!city) return alert('City is required for a venue.');
 
-  const v = venueService.create({ name, city, state });
-  selectVenue(v.id);
+  try {
+    const v = await venueService.create({ name, city, state });
+    showToast('New venue added');
+    selectVenue(v.id);
+  } catch (err) {
+    console.error('Failed to create venue:', err);
+    alert('Failed to create venue: ' + err.message);
+  }
 }
 
 // India City Picker
@@ -2214,12 +2456,17 @@ function saveManagers() {
   closeModal('managerPickerModal');
 }
 
-function deleteEvent(id) {
+async function deleteEvent(id) {
   if (confirm('Are you sure you want to delete this event?')) {
-    eventService.delete(id);
-    closeModal('detailModal');
-    showToast('Event deleted');
-    render();
+    try {
+      await eventService.delete(id);
+      closeModal('detailModal');
+      showToast('Event deleted');
+      render();
+    } catch (err) {
+      console.error('Failed to delete event:', err);
+      alert('Failed to delete event: ' + err.message);
+    }
   }
 }
 
@@ -2272,42 +2519,52 @@ function renderSingerModalTags() {
   }).join('');
 }
 
-function saveSinger() {
+async function saveSinger() {
   const name = document.getElementById('sName').value.trim();
   const gender = document.getElementById('sGender').value;
 
   if (!name) return alert('Singer name is required.');
 
-  if (editPersonId) {
-    peopleService.update(editPersonId, {
-      name,
-      gender,
-      tagIds: [...editPersonTagIds]
-    });
-    showToast('Singer details updated');
-  } else {
-    const existing = peopleService.getByName(name);
-    if (existing) {
-      return alert('A singer with this name already exists.');
+  try {
+    if (editPersonId) {
+      await peopleService.update(editPersonId, {
+        name,
+        gender,
+        tagIds: [...editPersonTagIds]
+      });
+      showToast('Singer details updated');
+    } else {
+      const existing = peopleService.getByName(name);
+      if (existing) {
+        return alert('A singer with this name already exists.');
+      }
+      await peopleService.create({
+        name,
+        gender,
+        tagIds: [...editPersonTagIds]
+      });
+      showToast('New singer added');
     }
-    peopleService.create({
-      name,
-      gender,
-      tagIds: [...editPersonTagIds]
-    });
-    showToast('New singer added');
-  }
 
-  closeModal('newSingerModal');
-  renderSingers();
+    closeModal('newSingerModal');
+    renderSingers();
+  } catch (err) {
+    console.error('Failed to save singer:', err);
+    alert('Failed to save singer: ' + err.message);
+  }
 }
 
-function deleteGlobalSinger(name) {
+async function deleteGlobalSinger(name) {
   const match = peopleService.getByName(name);
   if (match && confirm(`Remove ${name} from the global roster?`)) {
-    peopleService.delete(match.id);
-    showToast('Singer deleted from roster');
-    renderSingers();
+    try {
+      await peopleService.delete(match.id);
+      showToast('Singer deleted from roster');
+      renderSingers();
+    } catch (err) {
+      console.error('Failed to delete singer:', err);
+      alert('Failed to delete singer: ' + err.message);
+    }
   }
 }
 
@@ -2337,7 +2594,7 @@ function renderTagManagerList() {
   `).join('');
 }
 
-function createCustomTag() {
+async function createCustomTag() {
   const nameInput = document.getElementById('newTagName');
   const groupInput = document.getElementById('newTagGroup');
 
@@ -2346,41 +2603,77 @@ function createCustomTag() {
 
   if (!name) return alert('Tag name is required.');
 
-  tagService.create(name, group);
-
-  if (nameInput) nameInput.value = '';
-  showToast('Tag created');
-  renderTagManagerList();
-  renderSingers();
+  try {
+    await tagService.create(name, group);
+    if (nameInput) nameInput.value = '';
+    showToast('Tag created');
+    renderTagManagerList();
+    renderSingers();
+  } catch (err) {
+    console.error('Failed to create tag:', err);
+    alert('Failed to create tag: ' + err.message);
+  }
 }
 
-function promptRenameTag(tagId) {
+async function promptRenameTag(tagId) {
   const t = tagService.getById(tagId);
   if (!t) return;
 
   const newName = prompt('Enter new name for tag:', t.name);
   if (newName && newName.trim()) {
-    tagService.rename(tagId, newName.trim());
-    showToast('Tag renamed');
-    renderTagManagerList();
-    renderSingers();
+    try {
+      await tagService.rename(tagId, newName.trim());
+      showToast('Tag renamed');
+      renderTagManagerList();
+      renderSingers();
+    } catch (err) {
+      console.error('Failed to rename tag:', err);
+      alert('Failed to rename tag: ' + err.message);
+    }
   }
 }
 
-function toggleTagActive(tagId) {
-  tagService.toggleActive(tagId);
-  showToast('Tag status updated');
-  renderTagManagerList();
-  renderSingers();
+async function toggleTagActive(tagId) {
+  try {
+    await tagService.toggleActive(tagId);
+    showToast('Tag status updated');
+    renderTagManagerList();
+    renderSingers();
+  } catch (err) {
+    console.error('Failed to toggle tag:', err);
+    alert('Failed to toggle tag: ' + err.message);
+  }
 }
 
 // Settings Modal
 function openSettings() {
+  const u = authService.getUser();
+  const emailEl = document.getElementById('settingsAccountEmail');
+  const modeEl = document.getElementById('settingsModeBadge');
+  const resetContainer = document.getElementById('demoResetContainer');
+  const signOutContainer = document.getElementById('productionSignOutContainer');
+
+  if (emailEl) {
+    emailEl.textContent = u ? u.email : (isDemoMode() ? 'Local Demo Account' : 'Signed Out');
+  }
+  if (modeEl) {
+    modeEl.textContent = isDemoMode() ? 'Local Demo Mode (?demo=1 active)' : 'Firebase Production Mode';
+  }
+
+  // Rule 33: "Start Fresh" prototype reset button hidden in Production Mode
+  if (resetContainer) resetContainer.style.display = isDemoMode() ? 'block' : 'none';
+  if (signOutContainer) signOutContainer.style.display = isDemoMode() ? 'none' : 'block';
+
   document.getElementById('settingsModal').classList.add('open');
 }
 
 function resetApp() {
-  if (confirm('This will reset ALL data to seed data. Are you sure?')) {
+  if (!isDemoMode()) {
+    alert('Start Fresh reset is disabled in Production Mode to protect production data.');
+    return;
+  }
+
+  if (confirm('This will reset ALL local demo data to seed data. Are you sure?')) {
     storageService.remove('choirProtoSchemaVersion');
     storageService.remove('choirProtoEventTypes');
     storageService.remove('choirProtoTags');
@@ -2390,10 +2683,8 @@ function resetApp() {
     storageService.remove('choirProtoEvents');
     storageService.remove('choirProtoLooks');
 
-    migrateToV16B();
-
     closeModal('settingsModal');
-    showToast('Reset to seed data complete');
+    showToast('Reset demo data complete');
     render();
     go('home');
   }
@@ -2401,5 +2692,19 @@ function resetApp() {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-  render();
+  if (typeof window.isDemoMode === 'function' && window.isDemoMode()) {
+    window.onAuthResolved(null, true);
+  } else {
+    const initAuth = () => {
+      if (window.authService && window.FirebaseSDK) {
+        window.authService.init((user, isDemo) => {
+          if (window.onAuthResolved) window.onAuthResolved(user, isDemo);
+        });
+      } else {
+        setTimeout(initAuth, 30);
+      }
+    };
+    initAuth();
+  }
 });
+
