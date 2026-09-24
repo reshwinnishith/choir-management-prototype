@@ -358,16 +358,63 @@
     </div>
     <input id="eventTypeSearchInput" placeholder="Search event types..." oninput="renderEventTypePickerList()" style="margin-top:10px">
     <div id="eventTypeList" style="margin-top:10px; max-height:55vh; overflow-y:auto"></div>
-    <button type="button" id="btnToggleNewEventType" class="btn soft full" style="margin-top:10px" onclick="toggleNewEventTypeForm()">+ Add Custom Event Type</button>
+    <div class="row" style="margin-top:10px; gap:8px">
+      <button type="button" id="btnToggleNewEventType" class="btn soft full" style="flex:1" onclick="toggleNewEventTypeForm()">+ Add Event Type</button>
+      <button type="button" class="btn ghost small" onclick="openManageEventTypesModal()">Manage</button>
+    </div>
 
     <div id="newEventTypeContainer" style="display:none; margin-top:12px; padding:12px; background:#fff; border:1px solid var(--line); border-radius:16px;">
-      <h3 style="margin:0 0 10px; font-size:14px;">Add Custom Event Type</h3>
+      <h3 style="margin:0 0 10px; font-size:14px;">Add Event Type</h3>
       <label>Event Type Name *</label>
       <input id="netName" placeholder="e.g. Workshop, Audition, Broadcast">
       <div class="row" style="margin-top:10px; gap:8px">
         <button class="btn primary full" style="flex:1" onclick="saveNewEventType()">Save Event Type</button>
         <button class="btn ghost small" onclick="toggleNewEventTypeForm(false)">Cancel</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MANAGE EVENT TYPES -->
+<div id="manageEventTypesModal" class="modalwrap" onclick="if(event.target===this)closeModal('manageEventTypesModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Taxonomy</div>
+        <h2>Manage Event Types</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('manageEventTypesModal')">Close</button>
+    </div>
+    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+      <span class="muted font-small">Active Event Types</span>
+      <button class="btn primary small" onclick="toggleNewEventTypeForm(true); closeModal('manageEventTypesModal'); openModal('eventTypePickerModal');">+ Add Event Type</button>
+    </div>
+    <div id="manageEventTypesList" style="margin-top:10px; max-height:50vh; overflow-y:auto"></div>
+    <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:10px;">
+      <h3 style="font-size:13px; color:var(--muted); margin-bottom:8px;">Archived Types</h3>
+      <div id="archivedEventTypesList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MERGE EVENT TYPE -->
+<div id="mergeEventTypeModal" class="modalwrap" onclick="if(event.target===this)closeModal('mergeEventTypeModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Migration</div>
+        <h2>Merge Event Type</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('mergeEventTypeModal')">Close</button>
+    </div>
+    <div id="mergeEventTypeDescription" class="notice" style="margin-top:10px"></div>
+    <label style="margin-top:10px; display:block">Move events to *</label>
+    <select id="mergeTargetSelect" style="width:100%; margin-top:6px; padding:10px; border-radius:12px; border:1px solid var(--line)"></select>
+    <div class="row" style="margin-top:20px; gap:8px">
+      <button class="btn primary full" style="flex:1" onclick="executeMergeEventType()">Move & Delete</button>
+      <button class="btn ghost small" onclick="closeModal('mergeEventTypeModal')">Cancel</button>
     </div>
   </div>
 </div>

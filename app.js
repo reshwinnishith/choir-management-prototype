@@ -2124,11 +2124,16 @@ function openEventTypePickerModal() {
 
 function renderEventTypePickerList() {
   const q = (document.getElementById('eventTypeSearchInput')?.value || '').toLowerCase().trim();
-  const allTypes = eventTypeService.getAll().filter(t => t.active);
-  const filtered = allTypes.filter(t => !q || t.name.toLowerCase().includes(q));
+  const activeTypes = eventTypeService.getActive();
+  const filtered = activeTypes.filter(t => !q || t.name.toLowerCase().includes(q));
 
   const container = document.getElementById('eventTypeList');
   if (!container) return;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty" style="padding:10px">No matching event types found.</div>`;
+    return;
+  }
 
   container.innerHTML = filtered.map(t => {
     const isSelected = formEventTypeId === t.id;
@@ -2164,10 +2169,159 @@ async function saveNewEventType() {
   try {
     const et = await eventTypeService.create(name);
     showToast('New event type added');
+    toggleNewEventTypeForm(false);
     selectEventType(et.id);
   } catch (err) {
     console.error('Failed to create event type:', err);
     alert('Failed to create event type: ' + err.message);
+  }
+}
+
+// Manage Event Types UI
+let currentMergeSourceId = null;
+
+function openManageEventTypesModal() {
+  renderManageEventTypesList();
+  document.getElementById('manageEventTypesModal').classList.add('open');
+}
+
+function renderManageEventTypesList() {
+  const allTypes = eventTypeService.getAll();
+  const activeTypes = allTypes.filter(t => t.active !== false && !t.isProtected);
+  const archivedTypes = allTypes.filter(t => t.active === false && !t.isProtected);
+
+  const activeContainer = document.getElementById('manageEventTypesList');
+  const archivedContainer = document.getElementById('archivedEventTypesList');
+
+  if (activeContainer) {
+    if (activeTypes.length === 0) {
+      activeContainer.innerHTML = `<div class="empty" style="padding:15px">No active Event Types.</div>`;
+    } else {
+      activeContainer.innerHTML = activeTypes.map(t => {
+        const count = eventTypeService.getUsageCount(t.id);
+        return `
+          <div class="row between" style="padding:10px 12px; margin-bottom:6px; background:var(--bg-alt, #f8f9fa); border-radius:12px; border:1px solid var(--line, #eee);">
+            <div>
+              <div style="font-weight:700; font-size:14px">${t.name}</div>
+              <div class="muted font-small" style="font-size:12px">${count} event${count === 1 ? '' : 's'}</div>
+            </div>
+            <div class="row" style="gap:6px">
+              <button class="btn ghost small" onclick="promptRenameEventType('${t.id}')">Rename</button>
+              <button class="btn ghost small" onclick="toggleArchiveEventType('${t.id}', false)">Archive</button>
+              <button class="btn ghost small" style="color:var(--danger, #e53935)" onclick="handleDeleteEventType('${t.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  if (archivedContainer) {
+    if (archivedTypes.length === 0) {
+      archivedContainer.innerHTML = `<div class="muted font-small" style="padding:4px">No archived event types.</div>`;
+    } else {
+      archivedContainer.innerHTML = archivedTypes.map(t => {
+        const count = eventTypeService.getUsageCount(t.id);
+        return `
+          <div class="row between" style="padding:8px 12px; margin-bottom:6px; background:#f5f5f5; border-radius:10px; opacity:0.8;">
+            <div>
+              <div style="font-weight:600; font-size:13px; text-decoration:line-through">${t.name}</div>
+              <div class="muted font-small" style="font-size:11px">${count} event${count === 1 ? '' : 's'}</div>
+            </div>
+            <div class="row" style="gap:6px">
+              <button class="btn ghost small" onclick="toggleArchiveEventType('${t.id}', true)">Reactivate</button>
+              <button class="btn ghost small" style="color:var(--danger, #e53935)" onclick="handleDeleteEventType('${t.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+async function promptRenameEventType(id) {
+  const t = eventTypeService.getById(id);
+  if (!t) return;
+  const newName = prompt(`Rename Event Type "${t.name}":`, t.name);
+  if (!newName || newName.trim() === '' || newName.trim() === t.name) return;
+
+  try {
+    await eventTypeService.rename(id, newName.trim());
+    showToast('Event Type renamed');
+    renderManageEventTypesList();
+    renderEventTypePickerList();
+    render();
+    if (typeof detailEventId !== 'undefined' && detailEventId) openDetail(detailEventId);
+  } catch (err) {
+    console.error('Failed to rename Event Type:', err);
+    alert('Failed to rename Event Type: ' + err.message);
+  }
+}
+
+async function toggleArchiveEventType(id, makeActive) {
+  try {
+    await eventTypeService.setActive(id, makeActive);
+    showToast(makeActive ? 'Event Type reactivated' : 'Event Type archived');
+    renderManageEventTypesList();
+    renderEventTypePickerList();
+    render();
+  } catch (err) {
+    console.error('Failed to archive/reactivate Event Type:', err);
+    alert('Failed to update Event Type: ' + err.message);
+  }
+}
+
+async function handleDeleteEventType(id) {
+  const t = eventTypeService.getById(id);
+  if (!t) return;
+  const usageCount = eventTypeService.getUsageCount(id);
+
+  if (usageCount === 0) {
+    if (confirm(`Delete "${t.name}"?\nThis type isn't used by any events.`)) {
+      try {
+        await eventTypeService.delete(id);
+        showToast('Event Type deleted');
+        renderManageEventTypesList();
+        renderEventTypePickerList();
+        render();
+      } catch (err) {
+        console.error('Failed to delete Event Type:', err);
+        alert('Failed to delete Event Type: ' + err.message);
+      }
+    }
+  } else {
+    currentMergeSourceId = id;
+    const desc = document.getElementById('mergeEventTypeDescription');
+    if (desc) {
+      desc.textContent = `Delete / Merge "${t.name}"? This type is currently referenced by ${usageCount} event${usageCount === 1 ? '' : 's'}. Choose a target type to move those events to:`;
+    }
+    const select = document.getElementById('mergeTargetSelect');
+    if (select) {
+      const otherTypes = eventTypeService.getAll().filter(x => x.id !== id && !x.isProtected);
+      select.innerHTML = otherTypes.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+    }
+    document.getElementById('mergeEventTypeModal').classList.add('open');
+  }
+}
+
+async function executeMergeEventType() {
+  if (!currentMergeSourceId) return;
+  const select = document.getElementById('mergeTargetSelect');
+  const targetId = select ? select.value : null;
+  if (!targetId) return alert('Please select a target Event Type.');
+
+  try {
+    await eventTypeService.mergeInto(currentMergeSourceId, targetId);
+    showToast('Events merged and old Event Type removed');
+    closeModal('mergeEventTypeModal');
+    currentMergeSourceId = null;
+    renderManageEventTypesList();
+    renderEventTypePickerList();
+    render();
+    if (typeof detailEventId !== 'undefined' && detailEventId) openDetail(detailEventId);
+  } catch (err) {
+    console.error('Failed to merge Event Types:', err);
+    alert('Failed to merge Event Types: ' + err.message);
   }
 }
 

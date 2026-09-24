@@ -98,15 +98,22 @@ const cityService = {
 };
 
 // 2. Default System Event Types Definitions (Application Defaults)
+const productionInitialEventTypes = [
+  { id: 'event_type_unspecified', name: 'Unspecified', active: true, sortOrder: 0, isProtected: true },
+  { id: 'event_type_performance', name: 'Performance', active: true, sortOrder: 1 },
+  { id: 'event_type_recording', name: 'Recording', active: true, sortOrder: 2 },
+  { id: 'event_type_rehearsal', name: 'Rehearsal', active: true, sortOrder: 3 }
+];
+
 const defaultEventTypes = [
-  { id: 'event_type_unspecified', name: 'Unspecified', active: true },
-  { id: 'event_type_performance', name: 'Performance', active: true },
-  { id: 'event_type_recording', name: 'Recording', active: true },
-  { id: 'event_type_rehearsal', name: 'Rehearsal', active: true },
-  { id: 'event_type_event', name: 'Event', active: true },
-  { id: 'event_type_shoot', name: 'Shoot', active: true },
-  { id: 'event_type_soundcheck', name: 'Soundcheck', active: true },
-  { id: 'event_type_cast', name: 'Cast', active: true }
+  { id: 'event_type_unspecified', name: 'Unspecified', active: true, sortOrder: 0, isProtected: true },
+  { id: 'event_type_performance', name: 'Performance', active: true, sortOrder: 1 },
+  { id: 'event_type_recording', name: 'Recording', active: true, sortOrder: 2 },
+  { id: 'event_type_rehearsal', name: 'Rehearsal', active: true, sortOrder: 3 },
+  { id: 'event_type_event', name: 'Event', active: true, sortOrder: 4 },
+  { id: 'event_type_shoot', name: 'Shoot', active: true, sortOrder: 5 },
+  { id: 'event_type_soundcheck', name: 'Soundcheck', active: true, sortOrder: 6 },
+  { id: 'event_type_cast', name: 'Cast', active: true, sortOrder: 7 }
 ];
 
 // 3. Default Tag Definitions for Local Demo Mode
@@ -440,8 +447,8 @@ const firestoreDataProvider = {
       updatedAt: SDK.serverTimestamp()
     });
 
-    // 3. Initialize ONLY default System Event Types (Rule 5: No singers, events, clients, or venues uploaded!)
-    for (const et of defaultEventTypes) {
+    // 3. Initialize ONLY default System Event Types (Performance, Recording, Rehearsal)
+    for (const et of productionInitialEventTypes) {
       await SDK.setDoc(SDK.doc(db, "workspaces", wsId, "eventTypes", et.id), {
         ...et,
         createdAt: SDK.serverTimestamp(),
@@ -469,7 +476,7 @@ const firestoreDataProvider = {
         });
 
         if (colName === 'eventTypes' && items.length === 0) {
-          firestoreCache[colName] = [...defaultEventTypes];
+          firestoreCache[colName] = [...productionInitialEventTypes];
         } else {
           firestoreCache[colName] = items;
         }
@@ -724,19 +731,40 @@ const venueService = {
 
 const eventTypeService = {
   getAll() {
-    if (isDemoMode()) return localDataProvider.getEventTypes();
-    return firestoreCache.eventTypes.length ? firestoreCache.eventTypes : defaultEventTypes;
+    const list = isDemoMode()
+      ? localDataProvider.getEventTypes()
+      : (firestoreCache.eventTypes.length ? firestoreCache.eventTypes : productionInitialEventTypes);
+    return [...list].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  },
+  getActive() {
+    return this.getAll().filter(t => t.active !== false && !t.isProtected);
   },
   getById(id) {
-    if (!id) return defaultEventTypes[0];
-    return this.getAll().find(t => t.id === id) || defaultEventTypes[0];
+    if (!id) return this.getAll().find(t => t.isProtected) || this.getAll()[0];
+    const found = this.getAll().find(t => t.id === id);
+    if (found) return found;
+    return this.getAll().find(t => t.isProtected) || { id, name: 'Unspecified', active: true };
+  },
+  getUsageCount(id) {
+    const allEvents = eventService.getAll();
+    return allEvents.filter(e => e.eventTypeId === id).length;
   },
   async create(input) {
-    const cleanName = (typeof input === 'string' ? input : (input && input.name) || '').trim();
+    const name = (typeof input === 'string' ? input : (input && input.name) || '').trim();
+    if (!name) throw new Error('Event Type name is required');
+    
+    // Case-insensitive duplicate check
+    const existing = this.getAll().find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      throw new Error(`An Event Type named "${existing.name}" already exists.`);
+    }
+
+    const maxSort = Math.max(...this.getAll().map(t => t.sortOrder || 0), 0);
     const newEventType = {
       id: generateId('event_type'),
-      name: cleanName,
-      active: true
+      name: name,
+      active: true,
+      sortOrder: maxSort + 1
     };
 
     if (isDemoMode()) {
@@ -749,6 +777,73 @@ const eventTypeService = {
       firestoreCache.eventTypes.push(newEventType);
       return newEventType;
     }
+  },
+  async update(id, data) {
+    if (isDemoMode()) {
+      const list = localDataProvider.getEventTypes();
+      const t = list.find(x => x.id === id);
+      if (t) {
+        Object.assign(t, data);
+        localDataProvider.setEventTypes(list);
+      }
+      return t;
+    } else {
+      const t = firestoreCache.eventTypes.find(x => x.id === id);
+      if (!t) throw new Error(`Event Type not found: ${id}`);
+      await firestoreDataProvider.writeDoc('eventTypes', id, data);
+      Object.assign(t, data);
+      return t;
+    }
+  },
+  async rename(id, newName) {
+    const cleanName = (newName || '').trim();
+    if (!cleanName) throw new Error('New Event Type name is required');
+    const existing = this.getAll().find(t => t.id !== id && t.name.toLowerCase() === cleanName.toLowerCase());
+    if (existing) {
+      throw new Error(`An Event Type named "${existing.name}" already exists.`);
+    }
+    return await this.update(id, { name: cleanName });
+  },
+  async setActive(id, active) {
+    return await this.update(id, { active: Boolean(active) });
+  },
+  async delete(id) {
+    const usageCount = this.getUsageCount(id);
+    if (usageCount > 0) {
+      throw new Error(`Cannot delete Event Type that is referenced by ${usageCount} event(s). Please merge events first.`);
+    }
+
+    if (isDemoMode()) {
+      const list = localDataProvider.getEventTypes().filter(t => t.id !== id);
+      localDataProvider.setEventTypes(list);
+    } else {
+      await firestoreDataProvider.deleteDoc('eventTypes', id);
+      firestoreCache.eventTypes = firestoreCache.eventTypes.filter(t => t.id !== id);
+    }
+  },
+  async mergeInto(sourceId, targetId) {
+    if (!sourceId || !targetId || sourceId === targetId) {
+      throw new Error('Invalid merge parameters');
+    }
+    const targetType = this.getById(targetId);
+    if (!targetType) throw new Error('Target Event Type does not exist');
+
+    const affectedEvents = eventService.getAll().filter(e => e.eventTypeId === sourceId);
+
+    // Update all events referencing sourceId to targetId
+    for (const evt of affectedEvents) {
+      await eventService.update(evt.id, { eventTypeId: targetId });
+    }
+
+    // Now safely delete the source event type
+    if (isDemoMode()) {
+      const list = localDataProvider.getEventTypes().filter(t => t.id !== sourceId);
+      localDataProvider.setEventTypes(list);
+    } else {
+      await firestoreDataProvider.deleteDoc('eventTypes', sourceId);
+      firestoreCache.eventTypes = firestoreCache.eventTypes.filter(t => t.id !== sourceId);
+    }
+    return true;
   }
 };
 
@@ -762,7 +857,7 @@ const eventService = {
   },
   async create(data) {
     const newEvent = {
-      id: data.id || Date.now(),
+      id: data.id || generateId('evt'),
       status: data.status || 'enquiry',
       name: data.name || '',
       eventTypeId: data.eventTypeId || 'event_type_unspecified',
@@ -923,4 +1018,5 @@ window.getPersonById = getPersonById;
 window.getClientById = getClientById;
 window.getVenueById = getVenueById;
 window.getEventTypeById = getEventTypeById;
+window.productionInitialEventTypes = productionInitialEventTypes;
 
