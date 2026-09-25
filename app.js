@@ -28,14 +28,39 @@ let swapFilterTagIds = [];
 let currentAuthTab = 'signin';
 
 // Toast Notification
+let toastUndoTimeout = null;
 function showToast(msg) {
   const el = document.getElementById('toast');
   if (!el) return;
+  if (toastUndoTimeout) clearTimeout(toastUndoTimeout);
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => {
+  toastUndoTimeout = setTimeout(() => {
     el.classList.remove('show');
   }, 2200);
+}
+
+function showToastWithUndo(msg, undoFn) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  if (toastUndoTimeout) clearTimeout(toastUndoTimeout);
+  el.innerHTML = `<span>${msg}</span><button class="toast-undo-btn" onclick="triggerToastUndo()">Undo</button>`;
+  window._currentToastUndo = undoFn;
+  el.classList.add('show');
+  toastUndoTimeout = setTimeout(() => {
+    el.classList.remove('show');
+    window._currentToastUndo = null;
+  }, 4000);
+}
+
+function triggerToastUndo() {
+  if (window._currentToastUndo) {
+    const fn = window._currentToastUndo;
+    window._currentToastUndo = null;
+    const el = document.getElementById('toast');
+    if (el) el.classList.remove('show');
+    fn();
+  }
 }
 
 // --------------------------------------------------
@@ -64,7 +89,7 @@ window.onAuthResolved = function(user, isDemo) {
       if (subHeader) subHeader.textContent = `${user.email} · Cloud Sync Active`;
     }
 
-    render();
+    go('home');
   } else {
     if (authScreen) authScreen.style.display = 'block';
     if (appContainer) appContainer.style.display = 'none';
@@ -196,9 +221,65 @@ function renderPersonRow(p, options = {}) {
 }
 
 // Helpers
+function formatMoneyIN(v) {
+  if (v === undefined || v === null || v === '' || isNaN(v)) return '';
+  const num = Number(v);
+  if (num === 0) return '';
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(num);
+  } catch (e) {
+    return '₹' + num.toLocaleString('en-IN');
+  }
+}
+
 function money(v) {
-  if (!v || Number(v) === 0) return '—';
-  return '₹' + Number(v).toLocaleString('en-IN');
+  if (v === undefined || v === null || v === '' || Number(v) === 0) return '—';
+  return formatMoneyIN(v);
+}
+
+function formatSingerProgress(assignedSingers, singersCount) {
+  const availConfirmed = (assignedSingers || []).filter(s => s.status === 'Available').length;
+  if (singersCount === undefined || singersCount === null || singersCount === '' || isNaN(singersCount)) {
+    return 'No singer target';
+  }
+  const target = Number(singersCount);
+  return `${availConfirmed}/${target} singers`;
+}
+
+function formatSingerProgressDetail(assignedSingers, singersCount) {
+  const availConfirmed = (assignedSingers || []).filter(s => s.status === 'Available').length;
+  if (singersCount === undefined || singersCount === null || singersCount === '' || isNaN(singersCount)) {
+    return 'No singer target';
+  }
+  return `<b>${availConfirmed}</b> / ${singersCount} Confirmed`;
+}
+
+async function confirmEventInline(evt, id) {
+  if (evt) evt.stopPropagation();
+  const e = eventService.getById(id);
+  if (!e) return;
+
+  try {
+    await eventService.update(id, { status: 'confirmed' });
+    render();
+    showToastWithUndo('Show confirmed', async () => {
+      try {
+        await eventService.update(id, { status: 'enquiry' });
+        render();
+        showToast('Restored to enquiry draft');
+      } catch (err) {
+        console.error('Failed to undo confirm:', err);
+        alert('Failed to undo confirm: ' + err.message);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to confirm show:', err);
+    alert('Failed to confirm show: ' + err.message);
+  }
 }
 
 function dateParts(d) {
@@ -274,11 +355,16 @@ function eventCard(e) {
   let primaryTitle = '';
   let secondaryTitle = '';
 
+  const cleanName = (e.name && e.name.trim() !== 'Untitled Show' && e.name.trim() !== 'Untitled Event') ? e.name.trim() : '';
+
   if (clientObj && clientObj.name) {
     primaryTitle = clientObj.name;
-    secondaryTitle = e.name && e.name !== 'Untitled Show' ? e.name : '';
+    secondaryTitle = cleanName;
+  } else if (cleanName) {
+    primaryTitle = cleanName;
+    secondaryTitle = '';
   } else {
-    primaryTitle = e.name || 'Untitled Event';
+    primaryTitle = 'Untitled Event';
     secondaryTitle = '';
   }
 
@@ -296,26 +382,32 @@ function eventCard(e) {
   }
 
   const evtTypeName = (evtTypeObj && evtTypeObj.id !== 'event_type_unspecified') ? evtTypeObj.name : '';
-  const availConfirmed = (e.assignedSingers || []).filter(s => s.status === 'Available').length;
   const unavailableCount = (e.assignedSingers || []).filter(s => s.status === 'Unavailable').length;
-  const moneyText = money(e.budget);
+  const moneyText = formatMoneyIN(e.budget);
+  const singerPillText = formatSingerProgress(e.assignedSingers, e.singersCount);
+
+  const isEnquiry = e.status === 'enquiry';
+  const cardStatusClass = isEnquiry ? 'card-enquiry' : 'card-confirmed';
 
   return `
-    <div class="card compact clickable" onclick="openDetail(${e.id})">
+    <div class="card compact clickable ${cardStatusClass}" onclick="openDetail('${e.id}')">
       <div class="event-line">
         <div class="datebox"><span>${d.mon}</span><b>${d.day}</b></div>
         <div style="flex:1; min-width:0">
           <div class="client-primary-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${primaryTitle} ${e.isDemoFixture ? '<span class="tiny" style="color:var(--purple); font-weight:700">[Demo]</span>' : ''}</div>
           ${secondaryTitle ? `<div class="event-secondary-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${secondaryTitle}</div>` : ''}
           <div class="location-sub-line" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${locationText}</div>
-          <div class="tagrow" style="margin-top:4px">
-            <span class="pill ${e.status}">${e.status === 'confirmed' ? 'Confirmed' : 'Enquiry'}</span>
+          <div class="tagrow" style="margin-top:6px; flex-wrap:wrap; gap:4px">
+            <span class="pill ${e.status}">${isEnquiry ? 'Enquiry' : 'Confirmed'}</span>
             ${evtTypeName ? `<span class="pill ${workTypePillClass(evtTypeName)}">${evtTypeName}</span>` : ''}
-            <span class="pill">${availConfirmed}/${e.singersCount} singers</span>
+            <span class="pill">${singerPillText}</span>
             ${unavailableCount > 0 ? `<span class="pill avail-unavailable">⚠️ ${unavailableCount} unavail</span>` : ''}
           </div>
         </div>
-        <div class="money">${moneyText !== '—' ? moneyText : ''}</div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; justify-content:space-between">
+          <div class="money">${moneyText ? moneyText : ''}</div>
+          ${isEnquiry ? `<button type="button" class="btn-confirm-inline" onclick="confirmEventInline(event, '${e.id}')">Confirm ✓</button>` : ''}
+        </div>
       </div>
     </div>
   `;
@@ -1805,6 +1897,49 @@ function setFormStatus(status) {
 
 function updateFormDisplay() {
   setFormStatus(formStatus);
+  renderEventFormState();
+}
+
+function updateEventNameContextLabel(evtTypeObj) {
+  const fNameLabel = document.getElementById('fNameLabel');
+  const fNameInput = document.getElementById('fName');
+  if (!fNameLabel || !fNameInput) return;
+
+  const etName = evtTypeObj ? (evtTypeObj.name || '').toLowerCase() : '';
+  if (etName.includes('perf')) {
+    fNameLabel.textContent = 'Show / Event Name (Optional)';
+    fNameInput.placeholder = 'e.g. Yuvan Live';
+  } else if (etName.includes('rec')) {
+    fNameLabel.textContent = 'Recording / Project Name (Optional)';
+    fNameInput.placeholder = 'e.g. film / song / BGM session';
+  } else if (etName.includes('reh')) {
+    fNameLabel.textContent = 'Rehearsal For (Optional)';
+    fNameInput.placeholder = 'e.g. Yuvan Live';
+  } else {
+    fNameLabel.textContent = 'Event / Project Name (Optional)';
+    fNameInput.placeholder = 'Optional reference';
+  }
+}
+window.updateEventNameContextLabel = updateEventNameContextLabel;
+
+function setupBudgetInputBehavior() {
+  const el = document.getElementById('fBudget');
+  if (!el || el._hasBudgetListeners) return;
+  el._hasBudgetListeners = true;
+  el.addEventListener('focus', () => {
+    const raw = el.value.replace(/[^0-9]/g, '');
+    el.value = (raw && Number(raw) > 0) ? raw : '';
+  });
+  el.addEventListener('blur', () => {
+    const raw = el.value.replace(/[^0-9]/g, '');
+    el.value = (raw && Number(raw) > 0) ? Number(raw).toLocaleString('en-IN') : '';
+  });
+}
+window.setupBudgetInputBehavior = setupBudgetInputBehavior;
+
+function renderEventFormState() {
+  const statusSelect = document.getElementById('fStatus');
+  if (statusSelect) statusSelect.value = formStatus;
 
   const clientObj = formClientId ? clientService.getById(formClientId) : null;
   const clientEl = document.getElementById('formClientDisplay');
@@ -1823,6 +1958,9 @@ function updateFormDisplay() {
   if (evtTypeEl) {
     evtTypeEl.textContent = evtTypeObj ? evtTypeObj.name : 'Unspecified';
   }
+
+  updateEventNameContextLabel(evtTypeObj);
+  setupBudgetInputBehavior();
 
   const venueObj = formVenueId ? venueService.getById(formVenueId) : null;
   const venueEl = document.getElementById('formVenueDisplay');
@@ -1925,10 +2063,10 @@ function openEditEvent(id) {
   if (eyebrowEl) eyebrowEl.textContent = 'Edit Event';
   if (titleEl) titleEl.textContent = 'Edit Event Details';
 
-  document.getElementById('fName').value = (e.name && e.name !== 'Untitled Show') ? e.name : '';
+  document.getElementById('fName').value = (e.name && e.name !== 'Untitled Show' && e.name !== 'Untitled Event') ? e.name : '';
   document.getElementById('fDate').value = e.date || '';
   document.getElementById('fTime').value = e.time || '';
-  document.getElementById('fBudget').value = e.budget ? e.budget : '';
+  document.getElementById('fBudget').value = (e.budget && Number(e.budget) > 0) ? Number(e.budget).toLocaleString('en-IN') : '';
   document.getElementById('fLanguage').value = e.language || '';
   document.getElementById('fNotes').value = e.notes || '';
 
@@ -1952,13 +2090,13 @@ async function saveEvent() {
 
   const nameInput = document.getElementById('fName').value.trim();
   const time = document.getElementById('fTime').value;
-  const budgetVal = document.getElementById('fBudget').value;
-  const budget = budgetVal ? Number(budgetVal) : 0;
+  const budgetRaw = document.getElementById('fBudget').value.replace(/[^0-9]/g, '');
+  const budget = budgetRaw ? Number(budgetRaw) : 0;
   const language = document.getElementById('fLanguage').value;
   const notes = document.getElementById('fNotes').value.trim();
 
   const data = {
-    name: nameInput || 'Untitled Show',
+    name: nameInput,
     status: formStatus,
     clientId: formClientId,
     eventTypeId: formEventTypeId,
@@ -2627,10 +2765,11 @@ async function deleteEvent(id) {
 // Add / Edit Singer Modal
 let editPersonId = null;
 let editPersonTagIds = [];
+window.getEditPersonTagIds = () => editPersonTagIds;
 
 function openNewSinger() {
   editPersonId = null;
-  editPersonTagIds = ['tag_new_member', 'tag_performance', 'tag_recording'];
+  editPersonTagIds = []; // Zero tags preselected for new singer!
   document.getElementById('sName').value = '';
   document.getElementById('sGender').value = 'Female';
   document.getElementById('singerModalTitle').textContent = 'Add new singer';
@@ -2665,12 +2804,44 @@ function renderSingerModalTags() {
   const container = document.getElementById('sTagsGroup');
   if (!container) return;
 
-  const activeTags = tagService.getAll().filter(t => t.active);
-  container.innerHTML = activeTags.map(t => {
+  const activeTags = tagService.getAll().filter(t => t.active !== false);
+  let html = activeTags.map(t => {
     const isOn = editPersonTagIds.includes(t.id);
-    const pillCls = getTagGroupPillClass(t.group);
-    return `<button class="pill ${pillCls} ${isOn ? 'on' : ''}" onclick="toggleSingerModalTag('${t.id}')">${t.name}</button>`;
+    return `<button type="button" class="tag-chip ${isOn ? 'selected' : ''}" onclick="toggleSingerModalTag('${t.id}')">${t.name}</button>`;
   }).join('');
+
+  html += `<button type="button" class="tag-chip add-tag-chip" onclick="openAddTagQuickModal()">+ Add Tag</button>`;
+
+  container.innerHTML = html;
+}
+
+function openAddTagQuickModal() {
+  const input = document.getElementById('quickTagName');
+  if (input) input.value = '';
+  document.getElementById('addTagQuickModal').classList.add('open');
+}
+
+async function saveQuickTag() {
+  const name = document.getElementById('quickTagName').value.trim();
+  const group = document.getElementById('quickTagGroup').value;
+
+  if (!name) return alert('Tag name is required.');
+
+  try {
+    const existing = tagService.getByName(name);
+    if (existing) {
+      alert(`Tag "${existing.name}" already exists.`);
+      return;
+    }
+    await tagService.create({ name, group });
+    showToast('New tag added');
+    closeModal('addTagQuickModal');
+    document.getElementById('quickTagName').value = '';
+    renderSingerModalTags();
+  } catch (err) {
+    console.error('Failed to create tag:', err);
+    alert('Failed to create tag: ' + err.message);
+  }
 }
 
 async function saveSinger() {

@@ -1168,5 +1168,105 @@ html, body {
   min-width: 0;
 }
 
+/* Card Status Tints for Home / Upcoming */
+.card.card-enquiry {
+  background: #f4f7fb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 4px solid #3b82f6;
+}
+
+.card.card-confirmed {
+  background: #f2f9f4;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-left: 4px solid #22c55e;
+}
+
+/* Inline Confirm Action Button */
+.btn-confirm-inline {
+  background: var(--brand, #2b5246);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+.btn-confirm-inline:hover {
+  background: #1e3b32;
+}
+.btn-confirm-inline:active {
+  transform: scale(0.96);
+}
+
+/* Currency Input Wrapper */
+.currency-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.currency-symbol {
+  position: absolute;
+  left: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  pointer-events: none;
+}
+.currency-input-wrapper input {
+  padding-left: 28px !important;
+  width: 100%;
+}
+
+/* Tag Chips Container */
+.tags-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tag-chip {
+  background: var(--bg-alt, #f4f4ee);
+  color: var(--ink);
+  border: 1px solid var(--line, #e2e2da);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.tag-chip:hover {
+  border-color: var(--brand);
+}
+.tag-chip.selected {
+  background: var(--brand, #2b5246);
+  color: #ffffff;
+  border-color: var(--brand, #2b5246);
+}
+.tag-chip.add-tag-chip {
+  background: #ffffff;
+  border: 1px dashed var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+
+/* Toast Undo Button */
+.toast-undo-btn {
+  background: #ffffff;
+  color: var(--ink);
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+
 
 

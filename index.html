@@ -221,18 +221,17 @@
       <span class="picker-arrow">❯</span>
     </div>
 
-    <div class="form2" style="margin-top:10px">
-      <div>
-        <label>Show Name</label>
-        <input id="fName" placeholder="e.g. Wedding Gala / Audio Launch">
+    <div style="margin-top:10px">
+      <label>Event Type *</label>
+      <div class="picker-field" onclick="openEventTypePickerModal()">
+        <span id="formEventTypeDisplay" class="picker-val">Performance</span>
+        <span class="picker-arrow">❯</span>
       </div>
-      <div>
-        <label>Event Type</label>
-        <div class="picker-field" onclick="openEventTypePickerModal()">
-          <span id="formEventTypeDisplay" class="picker-val">Performance</span>
-          <span class="picker-arrow">❯</span>
-        </div>
-      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <label id="fNameLabel">Show / Event Name (Optional)</label>
+      <input id="fName" placeholder="e.g. Yuvan Live">
     </div>
 
     <!-- Date, Time & Location Section -->
@@ -289,7 +288,13 @@
     <!-- Additional Details -->
     <div class="form-section-title">Additional Details</div>
     <div class="form2">
-      <div><label>Budget (₹)</label><input id="fBudget" type="number" min="0" step="1000" placeholder="Optional"></div>
+      <div>
+        <label>Budget</label>
+        <div class="currency-input-wrapper">
+          <span class="currency-symbol">₹</span>
+          <input id="fBudget" type="text" inputmode="numeric" placeholder="e.g. 90,000 (Optional)">
+        </div>
+      </div>
       <div>
         <label>Language</label>
         <select id="fLanguage">
@@ -580,9 +585,36 @@
     <select id="sGender"><option value="Female">Female</option><option value="Male">Male</option></select>
 
     <label>Assigned Tags</label>
-    <div class="tagrow" id="sTagsGroup" style="margin-top:6px"></div>
+    <div id="sTagsGroup" class="tags-chips-container"></div>
 
     <button class="btn primary full" style="margin-top:24px" onclick="saveSinger()">Save Singer</button>
+  </div>
+</div>
+
+<!-- MODAL: QUICK ADD TAG -->
+<div id="addTagQuickModal" class="modalwrap" onclick="if(event.target===this)closeModal('addTagQuickModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Taxonomy</div>
+        <h2>Add Tag</h2>
+      </div>
+      <button class="btn ghost small" onclick="closeModal('addTagQuickModal')">Close</button>
+    </div>
+    <label style="margin-top:10px; display:block">Tag Name *</label>
+    <input id="quickTagName" placeholder="e.g. Tenor, Soprano, Classical">
+    <label style="margin-top:10px; display:block">Group</label>
+    <select id="quickTagGroup" style="width:100%; margin-top:6px; padding:10px; border-radius:12px; border:1px solid var(--line)">
+      <option value="membership">Membership</option>
+      <option value="language">Language</option>
+      <option value="eligibility">Eligibility</option>
+      <option value="custom" selected>Custom</option>
+    </select>
+    <div class="row" style="margin-top:20px; gap:8px">
+      <button class="btn primary full" style="flex:1" onclick="saveQuickTag()">Save Tag</button>
+      <button class="btn ghost small" onclick="closeModal('addTagQuickModal')">Cancel</button>
+    </div>
   </div>
 </div>
 

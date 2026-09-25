@@ -586,10 +586,18 @@ const tagService = {
   getById(id) {
     return this.getAll().find(t => t.id === id) || null;
   },
-  async create(name, group = 'custom') {
+  getByName(name) {
+    if (!name) return null;
+    const n = name.trim().toLowerCase();
+    return this.getAll().find(t => t.name.toLowerCase() === n) || null;
+  },
+  async create(input, groupArg = 'custom') {
+    const name = (typeof input === 'string' ? input : (input && input.name) || '').trim();
+    const group = (typeof input === 'object' && input.group) ? input.group : groupArg;
+
     const newTag = {
       id: generateId('tag_custom'),
-      name: name.trim(),
+      name,
       group,
       active: true
     };
