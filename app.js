@@ -634,7 +634,7 @@ function renderNeedsAttention() {
             <div class="muted">${dateParts(e.date).full} · ${venueName}</div>
             <div class="tiny" style="margin-top:4px; font-weight:700; color:${isDanger ? '#8a302e' : '#6d5612'}">${reasonText}</div>
           </div>
-          <button class="btn ${isDanger ? 'danger' : 'warning'} small" onclick="openDetail(${e.id})">${btnText}</button>
+          <button class="btn ${isDanger ? 'danger' : 'warning'} small" onclick="openDetail('${e.id}')">${btnText}</button>
         </div>
       </div>
     `;
@@ -1330,7 +1330,7 @@ function renderDetailModal() {
 
     <!-- Action Bar -->
     <div class="row" style="margin-top:14px; gap:6px; flex-wrap:wrap">
-      <button class="btn soft small" style="flex:1" onclick="openEditEvent(${e.id})">✏️ Edit Event</button>
+      <button class="btn soft small" style="flex:1" onclick="openEditEvent('${e.id}')">✏️ Edit Event</button>
       <button class="btn soft small" style="flex:1" onclick="openDuplicateModal()">📋 Duplicate</button>
       <button class="btn soft small" style="flex:1" onclick="openCopyLineupModal()">📑 Copy Lineup</button>
     </div>
@@ -1345,7 +1345,7 @@ function renderDetailModal() {
     ` : ''}
 
     ${e.status === 'enquiry' ? `
-      <button class="btn primary full" style="margin-top:14px" onclick="confirmEvent(${e.id})">Convert Enquiry to Confirmed Show</button>
+      <button class="btn primary full" style="margin-top:14px" onclick="confirmEvent('${e.id}')">Convert Enquiry to Confirmed Show</button>
     ` : ''}
 
     <!-- Managers Section -->
@@ -1427,7 +1427,7 @@ function renderDetailModal() {
 
     <!-- Danger Zone at Bottom -->
     <div style="margin-top:24px; border-top:1px solid var(--line); padding-top:14px">
-      <button class="btn danger small full" onclick="deleteEvent(${e.id})">Delete Event</button>
+      <button class="btn danger small full" onclick="deleteEvent('${e.id}')">Delete Event</button>
     </div>
   `;
 }
@@ -1734,7 +1734,7 @@ function openCopyLineupModal() {
       const d = dateParts(e.date);
       const count = (e.assignedSingers || []).length;
       return `
-        <div class="card compact clickable" style="margin-bottom:8px" onclick="executeCopyLineup(${e.id})">
+        <div class="card compact clickable" style="margin-bottom:8px" onclick="executeCopyLineup('${e.id}')">
           <div class="row between align-center">
             <div>
               <div class="title" style="font-size:15px">${e.name}</div>
