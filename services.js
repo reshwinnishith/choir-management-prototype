@@ -372,6 +372,12 @@ const authService = {
     firestoreDataProvider.clearCache();
   },
 
+  async resetPassword(email) {
+    if (isDemoMode()) return;
+    const SDK = window.FirebaseSDK;
+    await SDK.sendPasswordResetEmail(activeFirebaseAuth, email);
+  },
+
   getUser() {
     return currentUser;
   },

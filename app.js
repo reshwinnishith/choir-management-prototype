@@ -63,6 +63,24 @@ function triggerToastUndo() {
   }
 }
 
+// Converts a raw Firebase/Firestore/JS error into calm, non-technical copy.
+// Never surfaces err.message/err.code directly — those go to console only.
+function friendlyErrorMessage(err) {
+  console.error('[App Error]:', err);
+  const code = err && err.code ? String(err.code) : '';
+
+  if (code.includes('permission-denied')) {
+    return 'You do not have permission to perform this action.';
+  }
+  if (code === 'unavailable' || code === 'auth/network-request-failed') {
+    return 'Network error. Please check your connection and try again.';
+  }
+  if (code.startsWith('auth/')) {
+    return 'Something went wrong with your account. Please try again.';
+  }
+  return 'Please try again.';
+}
+
 // --------------------------------------------------
 // AUTHENTICATION & WORKSPACE RESOLUTION (v1.7)
 // --------------------------------------------------
@@ -70,6 +88,8 @@ function triggerToastUndo() {
 window.onAuthResolved = function(user, isDemo) {
   const authScreen = document.getElementById('authScreen');
   const appContainer = document.getElementById('appContainer');
+  const loadingScreen = document.getElementById('authLoadingScreen');
+  if (loadingScreen) loadingScreen.style.display = 'none';
 
   if (isDemo || user) {
     if (authScreen) authScreen.style.display = 'none';
@@ -114,6 +134,7 @@ function switchAuthTab(mode) {
   const extraFields = document.getElementById('signUpExtraFields');
   const submitBtn = document.getElementById('authSubmitBtn');
   const notice = document.getElementById('authNotice');
+  const forgotRow = document.getElementById('authForgotPasswordRow');
 
   if (notice) notice.style.display = 'none';
 
@@ -121,12 +142,97 @@ function switchAuthTab(mode) {
     if (btnSignIn) { btnSignIn.className = 'btn soft small full'; }
     if (btnSignUp) { btnSignUp.className = 'btn ghost small full'; }
     if (extraFields) extraFields.style.display = 'none';
+    if (forgotRow) forgotRow.style.display = 'block';
     if (submitBtn) submitBtn.textContent = 'Sign In to Workspace';
   } else {
     if (btnSignIn) { btnSignIn.className = 'btn ghost small full'; }
     if (btnSignUp) { btnSignUp.className = 'btn soft small full'; }
     if (extraFields) extraFields.style.display = 'block';
+    if (forgotRow) forgotRow.style.display = 'none';
     if (submitBtn) submitBtn.textContent = 'Create Production Workspace';
+  }
+}
+
+function isValidEmailFormat(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function openForgotPassword() {
+  const formPanel = document.getElementById('authFormPanel');
+  const resetPanel = document.getElementById('authResetPanel');
+  const authEmail = document.getElementById('authEmail');
+  const resetEmail = document.getElementById('resetEmail');
+  const resetNotice = document.getElementById('resetNotice');
+
+  if (resetEmail) resetEmail.value = authEmail ? authEmail.value.trim() : '';
+  if (resetNotice) { resetNotice.style.display = 'none'; resetNotice.className = 'notice'; }
+  if (formPanel) formPanel.style.display = 'none';
+  if (resetPanel) resetPanel.style.display = 'block';
+}
+
+function closeForgotPassword() {
+  const formPanel = document.getElementById('authFormPanel');
+  const resetPanel = document.getElementById('authResetPanel');
+  if (resetPanel) resetPanel.style.display = 'none';
+  if (formPanel) formPanel.style.display = 'block';
+}
+
+async function handlePasswordReset() {
+  const emailInput = document.getElementById('resetEmail');
+  const notice = document.getElementById('resetNotice');
+  const submitBtn = document.getElementById('resetSubmitBtn');
+  const email = (emailInput?.value || '').trim();
+
+  if (notice) { notice.style.display = 'none'; notice.className = 'notice'; }
+
+  if (!email || !isValidEmailFormat(email)) {
+    if (notice) {
+      notice.textContent = 'Please enter a valid email address.';
+      notice.classList.add('notice-error');
+      notice.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+
+  const showSuccess = () => {
+    if (notice) {
+      notice.textContent = 'Password reset email sent. Please check your inbox for instructions.';
+      notice.classList.add('notice-success');
+      notice.style.display = 'block';
+    }
+  };
+
+  try {
+    await authService.resetPassword(email);
+    showSuccess();
+  } catch (err) {
+    console.error('[Password Reset Error]:', err);
+    if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+      // Avoid revealing whether an account exists for this email
+      showSuccess();
+    } else if (err.code === 'auth/network-request-failed') {
+      if (notice) {
+        notice.textContent = 'Network error. Please check your connection and try again.';
+        notice.classList.add('notice-error');
+        notice.style.display = 'block';
+      }
+    } else if (err.code === 'auth/too-many-requests') {
+      if (notice) {
+        notice.textContent = 'Too many attempts. Please wait a moment and try again.';
+        notice.classList.add('notice-error');
+        notice.style.display = 'block';
+      }
+    } else {
+      if (notice) {
+        notice.textContent = 'Something went wrong. Please try again.';
+        notice.classList.add('notice-error');
+        notice.style.display = 'block';
+      }
+    }
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Reset Email'; }
   }
 }
 
@@ -144,6 +250,7 @@ async function handleAuthSubmit() {
   if (!email || !password) {
     if (notice) {
       notice.textContent = 'Please enter email and password.';
+      notice.className = 'notice notice-error';
       notice.style.display = 'block';
     }
     return;
@@ -152,12 +259,13 @@ async function handleAuthSubmit() {
   if (password.length < 6) {
     if (notice) {
       notice.textContent = 'Password must be at least 6 characters.';
+      notice.className = 'notice notice-error';
       notice.style.display = 'block';
     }
     return;
   }
 
-  if (notice) notice.style.display = 'none';
+  if (notice) { notice.style.display = 'none'; notice.className = 'notice'; }
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Authenticating...'; }
 
   try {
@@ -173,12 +281,19 @@ async function handleAuthSubmit() {
       errMsg = 'Invalid email or password.';
     } else if (err.code === 'auth/email-already-in-use') {
       errMsg = 'An account with this email already exists. Try signing in.';
-    } else if (err.message) {
-      errMsg = err.message;
+    } else if (err.code === 'auth/invalid-email') {
+      errMsg = 'Please enter a valid email address.';
+    } else if (err.code === 'auth/weak-password') {
+      errMsg = 'Password must be at least 6 characters.';
+    } else if (err.code === 'auth/too-many-requests') {
+      errMsg = 'Too many attempts. Please wait a moment and try again.';
+    } else if (err.code === 'auth/network-request-failed') {
+      errMsg = 'Network error. Please check your connection and try again.';
     }
 
     if (notice) {
       notice.textContent = errMsg;
+      notice.className = 'notice notice-error';
       notice.style.display = 'block';
     }
   } finally {
@@ -273,12 +388,12 @@ async function confirmEventInline(evt, id) {
         showToast('Restored to enquiry draft');
       } catch (err) {
         console.error('Failed to undo confirm:', err);
-        alert('Failed to undo confirm: ' + err.message);
+        alert('Failed to undo confirm: ' + friendlyErrorMessage(err));
       }
     });
   } catch (err) {
     console.error('Failed to confirm show:', err);
-    alert('Failed to confirm show: ' + err.message);
+    alert('Failed to confirm show: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -463,9 +578,19 @@ function render() {
 // Needs Attention Section on Home Screen
 function renderNeedsAttention() {
   const container = document.getElementById('needsAttentionList');
+  const section = document.getElementById('needsAttentionSection');
   if (!container) return;
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const upcomingEventCount = events.filter(e => e.date && e.date >= todayStr).length;
+
+  if (upcomingEventCount === 0) {
+    if (section) section.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  if (section) section.style.display = 'block';
+
   const attentionEvents = events.filter(e => {
     if (e.status !== 'confirmed') return false;
     if (e.date < todayStr) return false;
@@ -684,14 +809,14 @@ function renderSingers() {
   if (!listEl) return;
 
   if (!filtered.length) {
-    if (isDemoMode()) {
+    if (people.length > 0) {
       listEl.innerHTML = '<div class="empty">No singers found matching filters.</div>';
     } else {
       listEl.innerHTML = `
         <div class="empty" style="padding:20px; text-align:center">
           <div style="font-size:24px; margin-bottom:6px">♫</div>
-          <b>No singers in workspace yet.</b>
-          <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Add your first choir member to start building lineups.</div>
+          <b>No singers yet.</b>
+          <div class="tiny" style="color:var(--muted); margin-top:4px; margin-bottom:12px">Add your first singer to start building the roster.</div>
           <button class="btn primary small" onclick="openNewSinger()">+ Add Singer</button>
         </div>
       `;
@@ -807,7 +932,7 @@ async function togglePersonActive(personId) {
     renderSingers();
   } catch (err) {
     console.error('Failed to update singer status:', err);
-    alert('Failed to update singer status: ' + err.message);
+    alert('Failed to update singer status: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -878,6 +1003,18 @@ function renderStatistics() {
   people = peopleService.getAll();
   events = eventService.getAll();
   const realEvents = events.filter(e => !e.isDemoFixture);
+
+  if (!realEvents.length) {
+    container.innerHTML = `
+      <div class="empty" style="padding:32px 20px; text-align:center">
+        <div style="font-size:24px; margin-bottom:6px">📊</div>
+        <b>No show data yet.</b>
+        <div class="tiny" style="color:var(--muted); margin-top:4px">Statistics will appear as events are added.</div>
+      </div>
+    `;
+    return;
+  }
+
   const now = new Date();
   const curYear = now.getFullYear();
   const curMonthStr = `${curYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1014,7 +1151,7 @@ function renderStatistics() {
       </div>
     </div>
 
-    <div class="section"><h2>Work Type Breakdown</h2></div>
+    <div class="section"><h2>Event Type Breakdown</h2></div>
     <div class="card compact">
       ${Object.keys(workTypeCounts).map(wt => {
         const cnt = workTypeCounts[wt];
@@ -1303,7 +1440,7 @@ async function confirmEvent(id) {
     showToast('Event confirmed');
   } catch (err) {
     console.error('Failed to confirm event:', err);
-    alert('Failed to confirm event: ' + err.message);
+    alert('Failed to confirm event: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -1336,7 +1473,7 @@ async function saveLineupChanges() {
     renderDetailModal();
   } catch (err) {
     console.error('Failed to save lineup:', err);
-    alert('Failed to save lineup: ' + err.message);
+    alert('Failed to save lineup: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -1420,7 +1557,7 @@ async function updateAssignmentStatus(newStatus) {
     } catch (err) {
       item.status = prevStatus;
       console.error('Failed to update singer status:', err);
-      alert('Failed to update singer status: ' + err.message);
+      alert('Failed to update singer status: ' + friendlyErrorMessage(err));
     }
   }
   closeModal('assignmentActionModal');
@@ -1441,7 +1578,7 @@ async function removeSingerFromLineupDirect(personId) {
   } catch (err) {
     tempAssignedSingers = prevSingers;
     console.error('Failed to remove singer:', err);
-    alert('Failed to remove singer: ' + err.message);
+    alert('Failed to remove singer: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -1540,7 +1677,7 @@ async function executeSwapSinger(newPersonId) {
       closeModal('swapPickerModal');
     } catch (err) {
       console.error('Failed to swap singer:', err);
-      alert('Failed to swap singer: ' + err.message);
+      alert('Failed to swap singer: ' + friendlyErrorMessage(err));
     }
   }
 }
@@ -1580,7 +1717,7 @@ async function executeDuplicateEvent() {
     }
   } catch (err) {
     console.error('Failed to duplicate event:', err);
-    alert('Failed to duplicate event: ' + err.message);
+    alert('Failed to duplicate event: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -1625,7 +1762,7 @@ async function executeCopyLineup(sourceEventId) {
     closeModal('copyLineupModal');
   } catch (err) {
     console.error('Failed to copy lineup:', err);
-    alert('Failed to copy lineup: ' + err.message);
+    alert('Failed to copy lineup: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2132,7 +2269,7 @@ async function saveEvent() {
     }
   } catch (err) {
     console.error('Failed to save event:', err);
-    alert('Failed to save event: ' + err.message);
+    alert('Failed to save event: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2247,7 +2384,7 @@ async function saveNewClient() {
     selectClient(clientObj.id);
   } catch (err) {
     console.error('Failed to save client:', err);
-    alert('Failed to save client: ' + err.message);
+    alert('Failed to save client: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2311,7 +2448,7 @@ async function saveNewEventType() {
     selectEventType(et.id);
   } catch (err) {
     console.error('Failed to create event type:', err);
-    alert('Failed to create event type: ' + err.message);
+    alert('Failed to create event type: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2392,7 +2529,7 @@ async function promptRenameEventType(id) {
     if (typeof detailEventId !== 'undefined' && detailEventId) openDetail(detailEventId);
   } catch (err) {
     console.error('Failed to rename Event Type:', err);
-    alert('Failed to rename Event Type: ' + err.message);
+    alert('Failed to rename Event Type: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2405,7 +2542,7 @@ async function toggleArchiveEventType(id, makeActive) {
     render();
   } catch (err) {
     console.error('Failed to archive/reactivate Event Type:', err);
-    alert('Failed to update Event Type: ' + err.message);
+    alert('Failed to update Event Type: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2424,7 +2561,7 @@ async function handleDeleteEventType(id) {
         render();
       } catch (err) {
         console.error('Failed to delete Event Type:', err);
-        alert('Failed to delete Event Type: ' + err.message);
+        alert('Failed to delete Event Type: ' + friendlyErrorMessage(err));
       }
     }
   } else {
@@ -2459,7 +2596,7 @@ async function executeMergeEventType() {
     if (typeof detailEventId !== 'undefined' && detailEventId) openDetail(detailEventId);
   } catch (err) {
     console.error('Failed to merge Event Types:', err);
-    alert('Failed to merge Event Types: ' + err.message);
+    alert('Failed to merge Event Types: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2570,7 +2707,7 @@ async function saveNewVenue() {
     selectVenue(v.id);
   } catch (err) {
     console.error('Failed to create venue:', err);
-    alert('Failed to create venue: ' + err.message);
+    alert('Failed to create venue: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2757,7 +2894,7 @@ async function deleteEvent(id) {
       render();
     } catch (err) {
       console.error('Failed to delete event:', err);
-      alert('Failed to delete event: ' + err.message);
+      alert('Failed to delete event: ' + friendlyErrorMessage(err));
     }
   }
 }
@@ -2840,7 +2977,7 @@ async function saveQuickTag() {
     renderSingerModalTags();
   } catch (err) {
     console.error('Failed to create tag:', err);
-    alert('Failed to create tag: ' + err.message);
+    alert('Failed to create tag: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2875,7 +3012,7 @@ async function saveSinger() {
     renderSingers();
   } catch (err) {
     console.error('Failed to save singer:', err);
-    alert('Failed to save singer: ' + err.message);
+    alert('Failed to save singer: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2888,7 +3025,7 @@ async function deleteGlobalSinger(name) {
       renderSingers();
     } catch (err) {
       console.error('Failed to delete singer:', err);
-      alert('Failed to delete singer: ' + err.message);
+      alert('Failed to delete singer: ' + friendlyErrorMessage(err));
     }
   }
 }
@@ -2936,7 +3073,7 @@ async function createCustomTag() {
     renderSingers();
   } catch (err) {
     console.error('Failed to create tag:', err);
-    alert('Failed to create tag: ' + err.message);
+    alert('Failed to create tag: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2953,7 +3090,7 @@ async function promptRenameTag(tagId) {
       renderSingers();
     } catch (err) {
       console.error('Failed to rename tag:', err);
-      alert('Failed to rename tag: ' + err.message);
+      alert('Failed to rename tag: ' + friendlyErrorMessage(err));
     }
   }
 }
@@ -2966,7 +3103,7 @@ async function toggleTagActive(tagId) {
     renderSingers();
   } catch (err) {
     console.error('Failed to toggle tag:', err);
-    alert('Failed to toggle tag: ' + err.message);
+    alert('Failed to toggle tag: ' + friendlyErrorMessage(err));
   }
 }
 
@@ -2975,6 +3112,7 @@ function openSettings() {
   const u = authService.getUser();
   const emailEl = document.getElementById('settingsAccountEmail');
   const modeEl = document.getElementById('settingsModeBadge');
+  const statusPillEl = document.getElementById('settingsStatusPill');
   const resetContainer = document.getElementById('demoResetContainer');
   const signOutContainer = document.getElementById('productionSignOutContainer');
 
@@ -2982,7 +3120,10 @@ function openSettings() {
     emailEl.textContent = u ? u.email : (isDemoMode() ? 'Local Demo Account' : 'Signed Out');
   }
   if (modeEl) {
-    modeEl.textContent = isDemoMode() ? 'Local Demo Mode (?demo=1 active)' : 'Firebase Production Mode';
+    modeEl.textContent = isDemoMode() ? 'Local Demo Mode (?demo=1 active)' : 'Cloud Workspace';
+  }
+  if (statusPillEl) {
+    statusPillEl.textContent = isDemoMode() ? 'Local' : 'Synced';
   }
 
   // Rule 33: "Start Fresh" prototype reset button hidden in Production Mode

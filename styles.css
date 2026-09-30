@@ -663,6 +663,18 @@ textarea {
   line-height: 1.4;
 }
 
+.notice-success {
+  background: #eaf5ec;
+  border-color: #bfe0c6;
+  color: #2b5d36;
+}
+
+.notice-error {
+  background: #fbecec;
+  border-color: #f0c4c3;
+  color: #8a302e;
+}
+
 .replacement-card {
   border: 1px solid var(--line);
   border-radius: 14px;

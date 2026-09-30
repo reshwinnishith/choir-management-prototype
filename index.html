@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Choir Manager — v1.7 Firebase Production Workspace</title>
+  <title>Choir Manager</title>
   <link rel="stylesheet" href="styles.css" />
 
   <!-- Firebase Web SDK v10 (CDN ES Modules) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     window.FirebaseSDK = {
       initializeApp,
-      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator,
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator, sendPasswordResetEmail,
       getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence
     };
 
@@ -28,8 +28,14 @@
 <body>
 <div class="phone">
 
+  <!-- AUTH RESOLUTION LOADING STATE -->
+  <div id="authLoadingScreen" style="padding: 24px 20px; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center;">
+    <div style="font-size: 42px; margin-bottom: 12px;">🎶</div>
+    <div class="sub">Loading workspace…</div>
+  </div>
+
   <!-- MANAGER AUTH SCREEN -->
-  <div id="authScreen" class="screen active" style="padding: 24px 20px; background: var(--bg); display: block;">
+  <div id="authScreen" class="screen" style="padding: 24px 20px; background: var(--bg); display: none;">
     <div style="text-align: center; margin-top: 36px; margin-bottom: 24px;">
       <div style="font-size: 42px; margin-bottom: 8px;">🎶</div>
       <div class="eyebrow">Choir Manager</div>
@@ -37,7 +43,7 @@
       <div class="sub" style="margin-top: 6px;">Sign in to your production choir workspace.</div>
     </div>
 
-    <div class="card compact" style="padding: 20px;">
+    <div id="authFormPanel" class="card compact" style="padding: 20px;">
       <div id="authTabHeader" class="row between" style="margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 10px;">
         <button id="authTabSignIn" type="button" class="btn soft small full" style="flex: 1; font-weight: 700;" onclick="switchAuthTab('signin')">Sign In</button>
         <button id="authTabSignUp" type="button" class="btn ghost small full" style="flex: 1; font-weight: 700;" onclick="switchAuthTab('signup')">Create Account</button>
@@ -49,7 +55,11 @@
       <input id="authEmail" type="email" placeholder="manager@choir.org" style="margin-bottom: 12px;">
 
       <label>Password *</label>
-      <input id="authPassword" type="password" placeholder="••••••••" style="margin-bottom: 16px;">
+      <input id="authPassword" type="password" placeholder="••••••••" style="margin-bottom: 8px;">
+
+      <div id="authForgotPasswordRow" style="text-align: right; margin-bottom: 16px;">
+        <a href="javascript:void(0)" onclick="openForgotPassword()" style="font-size: 12px; color: var(--muted); text-decoration: underline;">Forgot password?</a>
+      </div>
 
       <div id="signUpExtraFields" style="display: none;">
         <label>Manager / Choir Name</label>
@@ -57,6 +67,19 @@
       </div>
 
       <button id="authSubmitBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px;" onclick="handleAuthSubmit()">Sign In to Workspace</button>
+    </div>
+
+    <div id="authResetPanel" class="card compact" style="padding: 20px; display: none;">
+      <h2 style="margin: 0 0 4px;">Reset your password</h2>
+      <div class="sub" style="margin-bottom: 16px;">Enter your account email and we'll send you a link to reset your password.</div>
+
+      <div id="resetNotice" class="notice" style="display: none; margin-bottom: 12px; font-size: 13px;"></div>
+
+      <label>Email Address *</label>
+      <input id="resetEmail" type="email" placeholder="manager@choir.org" style="margin-bottom: 16px;">
+
+      <button id="resetSubmitBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px; margin-bottom: 10px;" onclick="handlePasswordReset()">Send Reset Email</button>
+      <button type="button" class="btn ghost full" style="padding: 10px; font-size: 14px;" onclick="closeForgotPassword()">Back to Sign In</button>
     </div>
 
     <div style="text-align: center; margin-top: 24px;">
@@ -89,10 +112,12 @@
         </div>
 
         <!-- Needs Attention Section -->
-        <div class="section row between">
-          <h2>Needs Attention</h2>
+        <div id="needsAttentionSection">
+          <div class="section row between">
+            <h2>Needs Attention</h2>
+          </div>
+          <div id="needsAttentionList"></div>
         </div>
-        <div id="needsAttentionList"></div>
 
         <!-- Upcoming Events Section -->
         <div class="section row between">
@@ -189,7 +214,7 @@
     <div class="nav">
       <button class="active" data-screen="home" onclick="go('home')"><span class="ico">⌂</span>Home</button>
       <button data-screen="calendar" onclick="go('calendar')"><span class="ico">▦</span>Calendar</button>
-      <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Singers</button>
+      <button data-screen="singers" onclick="go('singers')"><span class="ico">♫</span>Roster</button>
       <button data-screen="statistics" onclick="go('statistics')"><span class="ico">📊</span>Statistics</button>
     </div>
   </div>
@@ -681,7 +706,7 @@
       <div class="row between align-center">
         <div>
           <div class="title" id="settingsAccountEmail">Manager Account</div>
-          <div class="tiny" style="color:var(--muted)" id="settingsModeBadge">Firebase Production Mode</div>
+          <div class="tiny" style="color:var(--muted)" id="settingsModeBadge">Cloud Workspace</div>
         </div>
         <span class="pill confirmed" id="settingsStatusPill">Active</span>
       </div>
