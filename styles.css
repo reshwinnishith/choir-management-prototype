@@ -1282,3 +1282,8 @@ html, body {
 
 
 
+
+/* v1.8C: settings sheet touch targets */
+#settingsModal .btn,
+#displayNameModal .btn,
+#authScreen .btn { min-height: 44px; }

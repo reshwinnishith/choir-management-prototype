@@ -288,12 +288,50 @@ const firestoreCache = {
   isLoaded: false
 };
 
+// v1.8C: person account -> workspace membership -> choir workspace.
+// Session state (never derived from the email address):
+let currentProfile = null;        // users/{uid}
+let currentWorkspace = null;      // { id, name, role, isLegacy, ownerUid, ownerDisplayName }
+let myWorkspaces = [];            // same shape, every workspace this person can open
+
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
+const INVITE_TTL_DAYS = 7;
+
+function randomCode(len, prefix = '') {
+  const bytes = new Uint8Array(len);
+  window.crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < len; i++) out += INVITE_ALPHABET[bytes[i] % INVITE_ALPHABET.length];
+  return prefix + out;
+}
+
+function normalizeInviteCode(raw) {
+  let c = String(raw || '').trim();
+  // accept a full invite link or a bare code
+  const m = c.match(/[?&]invite=([A-Za-z0-9]+)/);
+  if (m) c = m[1];
+  return c.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
+// Greeting helper: a stored displayName that is merely the email username counts as "not set".
+function profileNeedsDisplayName(profile, user) {
+  const dn = profile && profile.displayName ? String(profile.displayName).trim() : '';
+  if (!dn) return true;
+  const email = (user && user.email) || (profile && profile.email) || '';
+  // exact match only: "Demo" (a real name) differs from "demo" (the email username)
+  return dn === email.split('@')[0];
+}
+
+const ROLE_LABELS = { owner: 'Owner', manager: 'Manager' };
+
 const authService = {
   isInitialized: false,
+  _onChange: null,
 
   init(onAuthChangeCallback) {
     if (this.isInitialized) return;
     this.isInitialized = true;
+    this._onChange = onAuthChangeCallback;
 
     if (isDemoMode()) {
       console.log('[Auth] Running in Local Demo Mode (?demo=1). Auth bypass active.');
@@ -334,11 +372,11 @@ const authService = {
         currentUser = user;
         if (user) {
           console.log(`[Auth] User signed in: ${user.email} (${user.uid})`);
-          await firestoreDataProvider.loadWorkspaceForUser(user);
-          if (onAuthChangeCallback) onAuthChangeCallback(user, false);
+          const state = await workspaceService.bootstrap(user);
+          if (onAuthChangeCallback) onAuthChangeCallback(user, false, state);
         } else {
           console.log('[Auth] Signed out.');
-          firestoreDataProvider.clearCache();
+          workspaceService.reset();
           if (onAuthChangeCallback) onAuthChangeCallback(null, false);
         }
       });
@@ -354,13 +392,15 @@ const authService = {
     return await SDK.signInWithEmailAndPassword(activeFirebaseAuth, email, password);
   },
 
-  async signUp(email, password, displayName = '') {
+  // STEP 1 of onboarding: personal account only. Workspace creation / joining is a separate step.
+  async signUp(email, password, displayName) {
     if (isDemoMode()) return { user: null };
     const SDK = window.FirebaseSDK;
     const cred = await SDK.createUserWithEmailAndPassword(activeFirebaseAuth, email, password);
     currentUser = cred.user;
-    await firestoreDataProvider.createFirstRunWorkspace(cred.user, displayName);
-    return cred;
+    await workspaceService.saveProfile(cred.user, { displayName: String(displayName || '').trim() });
+    const state = await workspaceService.bootstrap(cred.user);
+    return { cred, state };
   },
 
   async signOut() {
@@ -368,8 +408,7 @@ const authService = {
     const SDK = window.FirebaseSDK;
     await SDK.signOut(activeFirebaseAuth);
     currentUser = null;
-    currentWorkspaceId = null;
-    firestoreDataProvider.clearCache();
+    workspaceService.reset();
   },
 
   async resetPassword(email) {
@@ -387,6 +426,339 @@ const authService = {
   }
 };
 
+const workspaceService = {
+  reset() {
+    currentWorkspaceId = null;
+    currentProfile = null;
+    currentWorkspace = null;
+    myWorkspaces = [];
+    firestoreDataProvider.clearCache();
+  },
+
+  getProfile() { return currentProfile; },
+  getCurrent() { return currentWorkspace; },
+  getAll() { return myWorkspaces; },
+  roleLabel(role) { return ROLE_LABELS[role] || 'Manager'; },
+
+  async saveProfile(user, fields) {
+    const SDK = window.FirebaseSDK;
+    const payload = {
+      email: user.email,
+      ...fields,
+      updatedAt: SDK.serverTimestamp()
+    };
+    const ref = SDK.doc(activeFirestoreDb, 'users', user.uid);
+    const snap = await SDK.getDoc(ref);
+    if (!snap.exists()) payload.createdAt = SDK.serverTimestamp();
+    await SDK.setDoc(ref, payload, { merge: true });
+    currentProfile = { ...(snap.exists() ? snap.data() : {}), ...fields, email: user.email };
+  },
+
+  // Resolve one workspace for this user. Membership is authoritative;
+  // the legacy ownerUid fallback is technical and never presented as a role.
+  async _resolve(user, wsId) {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    try {
+      const wsSnap = await SDK.getDoc(SDK.doc(db, 'workspaces', wsId));
+      if (!wsSnap.exists()) return null;
+      const ws = wsSnap.data();
+      if (ws.accessModel === 'members') {
+        const mSnap = await SDK.getDoc(SDK.doc(db, 'workspaces', wsId, 'members', user.uid));
+        if (!mSnap.exists() || mSnap.data().status !== 'active') return null;
+        return {
+          id: wsId, name: ws.name || 'Workspace', role: mSnap.data().role,
+          isLegacy: false, ownerUid: ws.ownerUid || null, ownerDisplayName: ws.ownerDisplayName || ''
+        };
+      }
+      // legacy workspace: readable only if the legacy rule grants it
+      return {
+        id: wsId, name: ws.name || 'Workspace', role: 'manager',
+        isLegacy: true, ownerUid: null, ownerDisplayName: ''
+      };
+    } catch (err) {
+      if (err && err.code === 'permission-denied') return null;
+      throw err;
+    }
+  },
+
+  async bootstrap(user) {
+    if (!user || isDemoMode()) return { status: 'demo' };
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    try {
+      const userSnap = await SDK.getDoc(SDK.doc(db, 'users', user.uid));
+      currentProfile = userSnap.exists() ? userSnap.data() : null;
+
+      const candidateIds = [];
+      const memSnap = await SDK.getDocs(SDK.collection(db, 'users', user.uid, 'memberships'));
+      memSnap.forEach(d => candidateIds.push(d.id));
+      const profWs = currentProfile && currentProfile.currentWorkspaceId;
+      if (profWs && !candidateIds.includes(profWs)) candidateIds.push(profWs);
+
+      const resolved = [];
+      for (const id of candidateIds) {
+        const r = await this._resolve(user, id);
+        if (r) resolved.push(r);
+      }
+      myWorkspaces = resolved;
+
+      if (!resolved.length) {
+        currentWorkspace = null;
+        currentWorkspaceId = null;
+        firestoreDataProvider.clearCache();
+        return { status: 'needsOnboarding' };
+      }
+
+      const chosen = resolved.find(w => w.id === profWs) || resolved[0];
+      await this._activate(user, chosen);
+      return { status: 'ready' };
+    } catch (err) {
+      console.error('[Workspace] Error loading workspace:', err);
+      return { status: 'error' };
+    }
+  },
+
+  async _activate(user, ws) {
+    const SDK = window.FirebaseSDK;
+    firestoreDataProvider.clearCache();
+    currentWorkspace = ws;
+    currentWorkspaceId = ws.id;
+    if (!currentProfile || currentProfile.currentWorkspaceId !== ws.id) {
+      try {
+        await SDK.setDoc(SDK.doc(activeFirestoreDb, 'users', user.uid), {
+          currentWorkspaceId: ws.id, updatedAt: SDK.serverTimestamp()
+        }, { merge: true });
+        currentProfile = { ...(currentProfile || {}), currentWorkspaceId: ws.id };
+      } catch (err) {
+        console.warn('[Workspace] Could not persist currentWorkspaceId:', err);
+      }
+    }
+    await firestoreDataProvider.refreshWorkspaceCache();
+  },
+
+  async switchTo(wsId) {
+    const user = currentUser;
+    const target = myWorkspaces.find(w => w.id === wsId);
+    if (!user || !target) throw new Error('Unknown workspace');
+    const fresh = await this._resolve(user, wsId);
+    if (!fresh) throw new Error('No access to workspace');
+    await this._activate(user, fresh);
+    return fresh;
+  },
+
+  async createWorkspace(name) {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const user = currentUser;
+    const wsName = String(name || '').trim();
+    if (!user || !wsName) throw new Error('Workspace name required');
+    const displayName = (currentProfile && currentProfile.displayName) || '';
+    const wsId = randomCode(10, 'ws_');
+
+    // Batch 1: workspace + Owner membership + hint + profile pointer (atomic)
+    const b = SDK.writeBatch(db);
+    b.set(SDK.doc(db, 'workspaces', wsId), {
+      name: wsName,
+      accessModel: 'members',
+      ownerUid: user.uid,
+      ownerDisplayName: displayName,
+      createdByUid: user.uid,
+      createdAt: SDK.serverTimestamp(),
+      updatedAt: SDK.serverTimestamp()
+    });
+    b.set(SDK.doc(db, 'workspaces', wsId, 'members', user.uid), {
+      uid: user.uid, role: 'owner', status: 'active',
+      displayName, joinedAt: SDK.serverTimestamp(), invitedByUid: null
+    });
+    b.set(SDK.doc(db, 'users', user.uid, 'memberships', wsId), {
+      workspaceId: wsId, workspaceName: wsName, role: 'owner', joinedAt: SDK.serverTimestamp()
+    });
+    b.set(SDK.doc(db, 'users', user.uid), {
+      email: user.email, currentWorkspaceId: wsId, updatedAt: SDK.serverTimestamp()
+    }, { merge: true });
+    await b.commit();
+
+    // Batch 2: default system event types (needs the membership to exist first)
+    const b2 = SDK.writeBatch(db);
+    for (const et of productionInitialEventTypes) {
+      b2.set(SDK.doc(db, 'workspaces', wsId, 'eventTypes', et.id), {
+        ...et, createdAt: SDK.serverTimestamp(), updatedAt: SDK.serverTimestamp()
+      });
+    }
+    await b2.commit();
+
+    currentProfile = { ...(currentProfile || {}), currentWorkspaceId: wsId };
+    const ws = { id: wsId, name: wsName, role: 'owner', isLegacy: false, ownerUid: user.uid, ownerDisplayName: displayName };
+    myWorkspaces = [...myWorkspaces.filter(w => w.id !== wsId), ws];
+    await this._activate(user, ws);
+    return ws;
+  },
+
+  async previewInvite(rawCode) {
+    const SDK = window.FirebaseSDK;
+    const code = normalizeInviteCode(rawCode);
+    if (code.length < 8) return null;
+    try {
+      const snap = await SDK.getDoc(SDK.doc(activeFirestoreDb, 'invites', code));
+      if (!snap.exists()) return null;
+      const inv = snap.data();
+      const exp = inv.expiresAt && inv.expiresAt.toDate ? inv.expiresAt.toDate() : null;
+      if (inv.status !== 'active' || !exp || exp.getTime() <= Date.now()) return null;
+      return { code, workspaceId: inv.workspaceId, workspaceName: inv.workspaceName || 'Workspace', role: inv.role };
+    } catch (err) {
+      return null;
+    }
+  },
+
+  async joinWithInvite(rawCode) {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const user = currentUser;
+    if (!user) throw new Error('Not signed in');
+    const inv = await this.previewInvite(rawCode);
+    if (!inv) {
+      const e = new Error('invite-invalid');
+      e.code = 'invite-invalid';
+      throw e;
+    }
+    if (myWorkspaces.some(w => w.id === inv.workspaceId)) {
+      const e = new Error('already-member');
+      e.code = 'already-member';
+      throw e;
+    }
+    const raw = (await SDK.getDoc(SDK.doc(db, 'invites', inv.code))).data();
+    const displayName = (currentProfile && currentProfile.displayName) || '';
+
+    // One atomic batch: consume invite + create membership (role copied from the invite,
+    // never chosen by the user; rules re-verify all of this server-side).
+    const b = SDK.writeBatch(db);
+    b.update(SDK.doc(db, 'invites', inv.code), {
+      status: 'used', usedByUid: user.uid, usedAt: SDK.serverTimestamp()
+    });
+    b.set(SDK.doc(db, 'workspaces', inv.workspaceId, 'members', user.uid), {
+      uid: user.uid, role: raw.role, status: 'active', displayName,
+      joinedAt: SDK.serverTimestamp(), invitedByUid: raw.createdByUid, inviteId: inv.code
+    });
+    b.set(SDK.doc(db, 'users', user.uid, 'memberships', inv.workspaceId), {
+      workspaceId: inv.workspaceId, workspaceName: inv.workspaceName, role: raw.role, joinedAt: SDK.serverTimestamp()
+    });
+    b.set(SDK.doc(db, 'users', user.uid), {
+      email: user.email, currentWorkspaceId: inv.workspaceId, updatedAt: SDK.serverTimestamp()
+    }, { merge: true });
+    try {
+      await b.commit();
+    } catch (err) {
+      // Used / revoked / expired between preview and commit
+      const e = new Error('invite-invalid');
+      e.code = 'invite-invalid';
+      throw e;
+    }
+
+    const fresh = await this._resolve(user, inv.workspaceId);
+    currentProfile = { ...(currentProfile || {}), currentWorkspaceId: inv.workspaceId };
+    myWorkspaces = [...myWorkspaces.filter(w => w.id !== inv.workspaceId), fresh];
+    await this._activate(user, fresh);
+    return fresh;
+  },
+
+  async createManagerInvite() {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const ws = currentWorkspace;
+    if (!ws || ws.isLegacy) throw new Error('Team invites need an upgraded workspace');
+    const code = randomCode(10);
+    await SDK.setDoc(SDK.doc(db, 'invites', code), {
+      workspaceId: ws.id,
+      workspaceName: ws.name,
+      role: 'manager',
+      status: 'active',
+      createdByUid: currentUser.uid,
+      createdByName: (currentProfile && currentProfile.displayName) || '',
+      createdAt: SDK.serverTimestamp(),
+      expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 864e5)
+    });
+    return { code, link: `${window.location.origin}/?invite=${code}`, ttlDays: INVITE_TTL_DAYS };
+  },
+
+  async listActiveInvites() {
+    const SDK = window.FirebaseSDK;
+    const ws = currentWorkspace;
+    if (!ws || ws.isLegacy) return [];
+    const snap = await SDK.getDocs(SDK.query(SDK.collection(activeFirestoreDb, 'invites'), SDK.where('workspaceId', '==', ws.id)));
+    const out = [];
+    snap.forEach(d => {
+      const v = d.data();
+      const exp = v.expiresAt && v.expiresAt.toDate ? v.expiresAt.toDate() : null;
+      if (v.status === 'active' && exp && exp.getTime() > Date.now()) {
+        out.push({ code: d.id, role: v.role, expiresAt: exp });
+      }
+    });
+    return out;
+  },
+
+  async revokeInvite(code) {
+    const SDK = window.FirebaseSDK;
+    await SDK.updateDoc(SDK.doc(activeFirestoreDb, 'invites', code), {
+      status: 'revoked', revokedByUid: currentUser.uid, revokedAt: SDK.serverTimestamp()
+    });
+  },
+
+  // Team list: real members + (if no owner account is linked yet) the business owner placeholder.
+  async listMembers() {
+    const SDK = window.FirebaseSDK;
+    const ws = currentWorkspace;
+    if (!ws) return [];
+    const team = [];
+    if (ws.isLegacy) {
+      team.push({
+        uid: currentUser.uid, displayName: (currentProfile && currentProfile.displayName) || '',
+        role: 'manager', status: 'active', isSelf: true
+      });
+      return team;
+    }
+    const snap = await SDK.getDocs(SDK.collection(activeFirestoreDb, 'workspaces', ws.id, 'members'));
+    let hasOwner = false;
+    snap.forEach(d => {
+      const m = d.data();
+      if (m.status !== 'active') return;
+      if (m.role === 'owner') hasOwner = true;
+      team.push({ uid: d.id, displayName: m.displayName || '', role: m.role, status: 'active', isSelf: d.id === currentUser.uid });
+    });
+    if (!hasOwner && ws.ownerDisplayName) {
+      team.push({ uid: null, displayName: ws.ownerDisplayName, role: 'owner', status: 'pending', isSelf: false });
+    }
+    team.sort((a, b) => (a.role === 'owner' ? -1 : 1) - (b.role === 'owner' ? -1 : 1) || a.displayName.localeCompare(b.displayName));
+    return team;
+  },
+
+  async removeManager(uid) {
+    const SDK = window.FirebaseSDK;
+    if (!currentWorkspace || currentWorkspace.role !== 'owner') throw new Error('Owner only');
+    await SDK.deleteDoc(SDK.doc(activeFirestoreDb, 'workspaces', currentWorkspace.id, 'members', uid));
+  },
+
+  async updateDisplayName(name) {
+    const SDK = window.FirebaseSDK;
+    const db = activeFirestoreDb;
+    const user = currentUser;
+    const dn = String(name || '').trim();
+    if (!dn) throw new Error('Name required');
+    await this.saveProfile(user, { displayName: dn });
+    // keep member display copies in sync (members may edit only their own displayName)
+    for (const w of myWorkspaces) {
+      if (w.isLegacy) continue;
+      try {
+        await SDK.updateDoc(SDK.doc(db, 'workspaces', w.id, 'members', user.uid), {
+          displayName: dn, updatedAt: SDK.serverTimestamp()
+        });
+      } catch (err) {
+        console.warn('[Profile] Could not sync member display name for', w.id, err);
+      }
+    }
+  }
+};
+
 const firestoreDataProvider = {
   clearCache() {
     firestoreCache.people = [];
@@ -396,73 +768,6 @@ const firestoreDataProvider = {
     firestoreCache.eventTypes = [...defaultEventTypes];
     firestoreCache.events = [];
     firestoreCache.isLoaded = false;
-  },
-
-  async loadWorkspaceForUser(user) {
-    if (!user || isDemoMode()) return;
-    const SDK = window.FirebaseSDK;
-    const db = activeFirestoreDb;
-
-    try {
-      const userDocRef = SDK.doc(db, "users", user.uid);
-      const userSnap = await SDK.getDoc(userDocRef);
-
-      if (userSnap.exists() && userSnap.data().currentWorkspaceId) {
-        currentWorkspaceId = userSnap.data().currentWorkspaceId;
-      } else {
-        await this.createFirstRunWorkspace(user, user.displayName || '');
-      }
-
-      await this.refreshWorkspaceCache();
-    } catch (err) {
-      console.error('[Firestore] Error loading workspace:', err);
-    }
-  },
-
-  async createFirstRunWorkspace(user, displayName = '') {
-    const SDK = window.FirebaseSDK;
-    const db = activeFirestoreDb;
-    const wsId = `ws_${user.uid.substr(0, 8)}`;
-    currentWorkspaceId = wsId;
-
-    // Check if user already has a workspace configured
-    const userDocRef = SDK.doc(db, "users", user.uid);
-    const userSnap = await SDK.getDoc(userDocRef);
-    if (userSnap.exists() && userSnap.data().currentWorkspaceId) {
-      currentWorkspaceId = userSnap.data().currentWorkspaceId;
-      console.log(`[Firestore] User ${user.email} already has workspace ${currentWorkspaceId}. Reusing.`);
-      return;
-    }
-
-    console.log(`[Firestore] Initializing clean workspace ${wsId} for user ${user.email}...`);
-
-    // 1. Create User Document
-    await SDK.setDoc(SDK.doc(db, "users", user.uid), {
-      displayName: displayName || user.email.split('@')[0],
-      email: user.email,
-      currentWorkspaceId: wsId,
-      createdAt: SDK.serverTimestamp(),
-      updatedAt: SDK.serverTimestamp()
-    });
-
-    // 2. Create Workspace Document
-    await SDK.setDoc(SDK.doc(db, "workspaces", wsId), {
-      name: `${displayName || 'Choir'} Workspace`,
-      ownerUid: user.uid,
-      createdAt: SDK.serverTimestamp(),
-      updatedAt: SDK.serverTimestamp()
-    });
-
-    // 3. Initialize ONLY default System Event Types (Performance, Recording, Rehearsal)
-    for (const et of productionInitialEventTypes) {
-      await SDK.setDoc(SDK.doc(db, "workspaces", wsId, "eventTypes", et.id), {
-        ...et,
-        createdAt: SDK.serverTimestamp(),
-        updatedAt: SDK.serverTimestamp()
-      });
-    }
-
-    console.log(`[Firestore] Clean workspace ${wsId} initialized successfully with default system Event Types.`);
   },
 
   async refreshWorkspaceCache() {

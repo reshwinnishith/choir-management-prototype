@@ -1,0 +1,17 @@
+{
+  "name": "choir-manager-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "cd .. && tests/node_modules/.bin/firebase emulators:exec --only firestore --project demo-choir-test \"node --test tests/rules.test.mjs\"",
+    "test:e2e": "cd .. && tests/node_modules/.bin/firebase emulators:exec --only auth,firestore --project demo-choir-test \"node --test --test-concurrency=1 tests/e2e.test.mjs\"",
+    "test": "npm run test:rules && npm run test:migration && npm run test:e2e",
+    "test:migration": "cd .. && tests/node_modules/.bin/firebase emulators:exec --only firestore --project demo-choir-test \"node --test tests/migration.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^13.35.1",
+    "playwright": "^1.63.0"
+  }
+}

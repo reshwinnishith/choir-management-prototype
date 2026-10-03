@@ -85,47 +85,268 @@ function friendlyErrorMessage(err) {
 // AUTHENTICATION & WORKSPACE RESOLUTION (v1.7)
 // --------------------------------------------------
 
-window.onAuthResolved = function(user, isDemo) {
+function escHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ---- pending invite (?invite=CODE) ----
+function capturePendingInvite() {
+  if (isDemoMode()) return;
+  try {
+    const code = new URLSearchParams(window.location.search).get('invite');
+    if (code) {
+      sessionStorage.setItem('choirPendingInvite', normalizeInviteCode(code));
+      const url = new URL(window.location.href);
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+    }
+  } catch (e) { /* sessionStorage may be unavailable; manual code entry still works */ }
+}
+function getPendingInvite() {
+  try { return sessionStorage.getItem('choirPendingInvite') || ''; } catch (e) { return ''; }
+}
+function clearPendingInvite() {
+  try { sessionStorage.removeItem('choirPendingInvite'); } catch (e) { /* ignore */ }
+}
+
+let displayNamePromptDismissed = false;
+
+function updateHomeHeader() {
+  const topEyebrow = document.getElementById('homeTopEyebrow');
+  const welcomeTitle = document.getElementById('homeWelcomeTitle');
+  const subHeader = document.getElementById('homeSubHeader');
+  if (isDemoMode()) {
+    if (topEyebrow) topEyebrow.textContent = 'Choir Manager (Local Demo)';
+    if (welcomeTitle) welcomeTitle.textContent = 'Demo Mode 🧪';
+    if (subHeader) subHeader.textContent = 'Local prototype dataset (?demo=1 active).';
+    return;
+  }
+  const user = authService.getUser();
+  const profile = workspaceService.getProfile();
+  const ws = workspaceService.getCurrent();
+  const needsName = profileNeedsDisplayName(profile, user);
+  const name = needsName ? '' : String(profile.displayName).trim();
+  if (topEyebrow) topEyebrow.textContent = 'Choir Manager';
+  if (welcomeTitle) welcomeTitle.textContent = name ? `Hello, ${name} 👋` : 'Hello 👋';
+  if (subHeader) {
+    subHeader.textContent = ws ? `${workspaceService.roleLabel(ws.role)} · ${ws.name}` : '';
+  }
+}
+
+function enterApp() {
+  const authScreen = document.getElementById('authScreen');
+  const appContainer = document.getElementById('appContainer');
+  if (authScreen) authScreen.style.display = 'none';
+  if (appContainer) appContainer.style.display = 'block';
+  updateHomeHeader();
+  render();
+  go('home');
+
+  if (!isDemoMode() && !displayNamePromptDismissed &&
+      profileNeedsDisplayName(workspaceService.getProfile(), authService.getUser())) {
+    displayNamePromptDismissed = true;
+    openDisplayNameModal(true);
+  }
+}
+
+window.onAuthResolved = function(user, isDemo, state) {
   const authScreen = document.getElementById('authScreen');
   const appContainer = document.getElementById('appContainer');
   const loadingScreen = document.getElementById('authLoadingScreen');
   if (loadingScreen) loadingScreen.style.display = 'none';
 
-  if (isDemo || user) {
+  if (isDemo) {
     if (authScreen) authScreen.style.display = 'none';
     if (appContainer) appContainer.style.display = 'block';
-
-    const topEyebrow = document.getElementById('homeTopEyebrow');
-    const welcomeTitle = document.getElementById('homeWelcomeTitle');
-    const subHeader = document.getElementById('homeSubHeader');
-
-    if (isDemo) {
-      if (topEyebrow) topEyebrow.textContent = 'Choir Manager (Local Demo)';
-      if (welcomeTitle) welcomeTitle.textContent = 'Demo Mode 🧪';
-      if (subHeader) subHeader.textContent = 'Local prototype dataset (?demo=1 active).';
-    } else if (user) {
-      if (topEyebrow) topEyebrow.textContent = 'Production Workspace';
-      if (welcomeTitle) welcomeTitle.textContent = `Hello, ${user.displayName || user.email.split('@')[0]} 👋`;
-      if (subHeader) subHeader.textContent = `${user.email} · Cloud Sync Active`;
-    }
-
+    updateHomeHeader();
     go('home');
-  } else {
-    if (authScreen) authScreen.style.display = 'block';
-    if (appContainer) appContainer.style.display = 'none';
+    return;
+  }
 
-    // Section 13: Unconfigured backend notice helper
-    const config = window.FIREBASE_WEB_CONFIG;
-    if (config && config.apiKey && config.apiKey.includes('YOUR_API_KEY') && !window.USE_FIREBASE_EMULATOR) {
-      const notice = document.getElementById('authNotice');
-      if (notice) {
-        notice.textContent = 'Cloud backend is not configured yet. Please update firebase-config.js with your project credentials or add ?demo=1 to URL for Local Demo Mode.';
-        notice.style.display = 'block';
-      }
+  if (user) {
+    const status = state && state.status;
+    const pending = getPendingInvite();
+    if (status === 'needsOnboarding') {
+      showAuthOnboarding(pending ? 'join' : 'choose', false);
+      return;
+    }
+    if (status === 'error') {
+      showAuthOnboarding('error', false);
+      return;
+    }
+    if (pending) {
+      // existing member opened an invite link: offer to join that workspace too
+      showAuthOnboarding('join', true);
+      return;
+    }
+    enterApp();
+    return;
+  }
+
+  if (authScreen) authScreen.style.display = 'block';
+  if (appContainer) appContainer.style.display = 'none';
+  showAuthPanel('form');
+  const heroSub = document.getElementById('authHeroSub');
+  if (heroSub) heroSub.textContent = 'Sign in with your own account.';
+
+  // Section 13: Unconfigured backend notice helper
+  const config = window.FIREBASE_WEB_CONFIG;
+  if (config && config.apiKey && config.apiKey.includes('YOUR_API_KEY') && !window.USE_FIREBASE_EMULATOR) {
+    const notice = document.getElementById('authNotice');
+    if (notice) {
+      notice.textContent = 'Cloud backend is not configured yet. Please update firebase-config.js with your project credentials or add ?demo=1 to URL for Local Demo Mode.';
+      notice.style.display = 'block';
+    }
+  } else if (getPendingInvite()) {
+    const notice = document.getElementById('authNotice');
+    if (notice) {
+      notice.textContent = 'You have a workspace invite. Sign in or create your own account to join.';
+      notice.className = 'notice';
+      notice.style.display = 'block';
     }
   }
 };
 
+// ---- auth-screen panels: form | choose | create | join ----
+let onboardHasWorkspace = false;
+
+function showAuthPanel(which) {
+  const ids = { form: 'authFormPanel', reset: 'authResetPanel', choose: 'authOnboardPanel', create: 'authCreateWsPanel', join: 'authJoinPanel' };
+  Object.entries(ids).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (k === which) ? 'block' : 'none';
+  });
+}
+
+function showAuthOnboarding(panel, hasWorkspace) {
+  onboardHasWorkspace = !!hasWorkspace;
+  const authScreen = document.getElementById('authScreen');
+  const appContainer = document.getElementById('appContainer');
+  if (authScreen) authScreen.style.display = 'block';
+  if (appContainer) appContainer.style.display = 'none';
+
+  const profile = workspaceService.getProfile();
+  const name = profile && profile.displayName && !profileNeedsDisplayName(profile, authService.getUser()) ? profile.displayName : '';
+  const hero = document.getElementById('authHeroSub');
+  if (hero) hero.textContent = name ? `Welcome, ${name}.` : 'Welcome.';
+  const greet = document.getElementById('onboardGreeting');
+  if (greet) greet.textContent = 'What would you like to do?';
+  const cancel = document.getElementById('onboardCancelBtn');
+  if (cancel) cancel.style.display = onboardHasWorkspace ? 'block' : 'none';
+  const so = document.getElementById('onboardSignOutBtn');
+  if (so) so.style.display = onboardHasWorkspace ? 'none' : 'block';
+
+  if (panel === 'error') {
+    showAuthPanel('choose');
+    if (greet) greet.textContent = "We couldn't load your workspaces. Check your connection and sign in again.";
+    return;
+  }
+  showOnboardPanel(panel);
+}
+
+function showOnboardPanel(which) {
+  ['createWsNotice', 'joinNotice'].forEach(id => {
+    const n = document.getElementById(id);
+    if (n) { n.style.display = 'none'; n.className = 'notice'; }
+  });
+  showAuthPanel(which);
+  if (which === 'join') {
+    const input = document.getElementById('joinInviteCode');
+    const pending = getPendingInvite();
+    if (input && pending && !input.value) input.value = pending;
+  }
+}
+
+function startWorkspaceFlow(which) {
+  closeModal('settingsModal');
+  showAuthOnboarding(which, true);
+}
+
+function cancelOnboarding() {
+  clearPendingInvite();
+  enterApp();
+}
+
+function setPanelNotice(id, msg, kind) {
+  const n = document.getElementById(id);
+  if (!n) return;
+  n.textContent = msg;
+  n.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-success');
+  n.style.display = 'block';
+}
+
+async function handleCreateWorkspace() {
+  const name = (document.getElementById('createWsName')?.value || '').trim();
+  const btn = document.getElementById('createWsBtn');
+  if (!name) { setPanelNotice('createWsNotice', 'Please enter a workspace name.', 'error'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  try {
+    await workspaceService.createWorkspace(name);
+    document.getElementById('createWsName').value = '';
+    clearPendingInvite();
+    enterApp();
+    showToast('Workspace created');
+  } catch (err) {
+    setPanelNotice('createWsNotice', friendlyErrorMessage(err), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Workspace'; }
+  }
+}
+
+async function handleJoinWorkspace() {
+  const raw = document.getElementById('joinInviteCode')?.value || '';
+  const btn = document.getElementById('joinWsBtn');
+  if (!normalizeInviteCode(raw)) { setPanelNotice('joinNotice', 'Please enter your invite code.', 'error'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Joining...'; }
+  try {
+    const ws = await workspaceService.joinWithInvite(raw);
+    document.getElementById('joinInviteCode').value = '';
+    clearPendingInvite();
+    enterApp();
+    showToast(`Joined ${ws.name}`);
+  } catch (err) {
+    if (err && err.code === 'already-member') {
+      setPanelNotice('joinNotice', 'You are already a member of that workspace.', 'error');
+    } else if (err && err.code === 'invite-invalid') {
+      setPanelNotice('joinNotice', 'This invite is not valid. It may have expired, been used, or been cancelled. Ask for a new one.', 'error');
+    } else {
+      setPanelNotice('joinNotice', friendlyErrorMessage(err), 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Join Workspace'; }
+  }
+}
+
+// ---- display name ----
+function openDisplayNameModal(isPrompt) {
+  const profile = workspaceService.getProfile();
+  const input = document.getElementById('displayNameInput');
+  const title = document.getElementById('displayNameTitle');
+  const n = document.getElementById('displayNameNotice');
+  if (n) n.style.display = 'none';
+  if (title) title.textContent = isPrompt === true ? 'What should we call you?' : 'Edit my name';
+  if (input) input.value = profileNeedsDisplayName(profile, authService.getUser()) ? '' : (profile.displayName || '');
+  closeModal('settingsModal');
+  document.getElementById('displayNameModal').classList.add('open');
+}
+
+async function saveDisplayName() {
+  const input = document.getElementById('displayNameInput');
+  const n = document.getElementById('displayNameNotice');
+  const name = (input?.value || '').trim();
+  if (!name) {
+    if (n) { n.textContent = 'Please enter your name.'; n.style.display = 'block'; }
+    return;
+  }
+  try {
+    await workspaceService.updateDisplayName(name);
+    closeModal('displayNameModal');
+    updateHomeHeader();
+    showToast('Name updated');
+  } catch (err) {
+    if (n) { n.textContent = friendlyErrorMessage(err); n.style.display = 'block'; }
+  }
+}
 
 function switchAuthTab(mode) {
   currentAuthTab = mode;
@@ -143,13 +364,13 @@ function switchAuthTab(mode) {
     if (btnSignUp) { btnSignUp.className = 'btn ghost small full'; }
     if (extraFields) extraFields.style.display = 'none';
     if (forgotRow) forgotRow.style.display = 'block';
-    if (submitBtn) submitBtn.textContent = 'Sign In to Workspace';
+    if (submitBtn) submitBtn.textContent = 'Sign In';
   } else {
     if (btnSignIn) { btnSignIn.className = 'btn ghost small full'; }
     if (btnSignUp) { btnSignUp.className = 'btn soft small full'; }
     if (extraFields) extraFields.style.display = 'block';
     if (forgotRow) forgotRow.style.display = 'none';
-    if (submitBtn) submitBtn.textContent = 'Create Production Workspace';
+    if (submitBtn) submitBtn.textContent = 'Create Account';
   }
 }
 
@@ -272,7 +493,16 @@ async function handleAuthSubmit() {
     if (currentAuthTab === 'signin') {
       await authService.signIn(email, password);
     } else {
-      await authService.signUp(email, password, displayName);
+      if (!displayName) {
+        if (notice) {
+          notice.textContent = 'Please enter your name.';
+          notice.className = 'notice notice-error';
+          notice.style.display = 'block';
+        }
+        return;
+      }
+      const res = await authService.signUp(email, password, displayName);
+      if (res && res.cred) window.onAuthResolved(res.cred.user, false, res.state);
     }
   } catch (err) {
     console.error('[Auth Error]:', err);
@@ -299,7 +529,7 @@ async function handleAuthSubmit() {
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = currentAuthTab === 'signin' ? 'Sign In to Workspace' : 'Create Production Workspace';
+      submitBtn.textContent = currentAuthTab === 'signin' ? 'Sign In' : 'Create Account';
     }
   }
 }
@@ -307,7 +537,9 @@ async function handleAuthSubmit() {
 async function handleSignOut() {
   closeModal('settingsModal');
   await authService.signOut();
-  showToast('Signed out of workspace');
+  displayNamePromptDismissed = false;
+  clearPendingInvite();
+  showToast('Signed out');
   window.onAuthResolved(null, isDemoMode());
 }
 
@@ -3110,27 +3342,166 @@ async function toggleTagActive(tagId) {
 // Settings Modal
 function openSettings() {
   const u = authService.getUser();
+  const profile = workspaceService.getProfile();
+  const ws = workspaceService.getCurrent();
+  const nameEl = document.getElementById('settingsAccountName');
   const emailEl = document.getElementById('settingsAccountEmail');
   const modeEl = document.getElementById('settingsModeBadge');
   const statusPillEl = document.getElementById('settingsStatusPill');
   const resetContainer = document.getElementById('demoResetContainer');
   const signOutContainer = document.getElementById('productionSignOutContainer');
+  const editNameBtn = document.getElementById('settingsEditNameBtn');
+  const wsSection = document.getElementById('settingsWorkspacesSection');
+  const teamSection = document.getElementById('settingsTeamSection');
 
-  if (emailEl) {
-    emailEl.textContent = u ? u.email : (isDemoMode() ? 'Local Demo Account' : 'Signed Out');
-  }
+  const demo = isDemoMode();
+  const shownName = u && !profileNeedsDisplayName(profile, u) ? profile.displayName : '';
+  if (nameEl) nameEl.textContent = demo ? 'Local Demo Account' : (shownName || 'Set your name');
+  if (emailEl) emailEl.textContent = u ? u.email : '';
   if (modeEl) {
-    modeEl.textContent = isDemoMode() ? 'Local Demo Mode (?demo=1 active)' : 'Cloud Workspace';
+    modeEl.textContent = demo ? 'Local Demo Mode (?demo=1 active)'
+      : (ws ? `${workspaceService.roleLabel(ws.role)} · ${ws.name}` : 'Cloud Workspace');
   }
-  if (statusPillEl) {
-    statusPillEl.textContent = isDemoMode() ? 'Local' : 'Synced';
-  }
+  if (statusPillEl) statusPillEl.textContent = demo ? 'Local' : 'Synced';
+  if (editNameBtn) editNameBtn.style.display = demo ? 'none' : 'block';
+  if (wsSection) wsSection.style.display = demo ? 'none' : 'block';
+  if (teamSection) teamSection.style.display = demo ? 'none' : 'block';
 
   // Rule 33: "Start Fresh" prototype reset button hidden in Production Mode
-  if (resetContainer) resetContainer.style.display = isDemoMode() ? 'block' : 'none';
-  if (signOutContainer) signOutContainer.style.display = isDemoMode() ? 'none' : 'block';
+  if (resetContainer) resetContainer.style.display = demo ? 'block' : 'none';
+  if (signOutContainer) signOutContainer.style.display = demo ? 'none' : 'block';
 
   document.getElementById('settingsModal').classList.add('open');
+  if (!demo) {
+    renderSettingsWorkspaces();
+    renderSettingsTeam();
+  }
+}
+
+function renderSettingsWorkspaces() {
+  const list = document.getElementById('settingsWorkspaceList');
+  if (!list) return;
+  const current = workspaceService.getCurrent();
+  list.innerHTML = workspaceService.getAll().map(w => {
+    const isCur = current && current.id === w.id;
+    return `<button type="button" class="btn ghost full" data-ws="${escHtml(w.id)}" style="min-height:44px; justify-content:space-between; text-align:left" ${isCur ? '' : `onclick="handleSwitchWorkspace('${escHtml(w.id)}')"`}>
+      <span style="min-width:0"><span style="font-weight:700">${isCur ? '✓ ' : ''}${escHtml(w.name)}</span><br><span class="tiny" style="color:var(--muted)">${escHtml(workspaceService.roleLabel(w.role))}</span></span>
+    </button>`;
+  }).join('');
+}
+
+async function handleSwitchWorkspace(wsId) {
+  try {
+    await workspaceService.switchTo(wsId);
+    closeModal('settingsModal');
+    enterApp();
+    showToast(`Switched to ${workspaceService.getCurrent().name}`);
+  } catch (err) {
+    showToast(friendlyErrorMessage(err));
+  }
+}
+
+async function renderSettingsTeam() {
+  const list = document.getElementById('settingsTeamList');
+  const invArea = document.getElementById('settingsInviteArea');
+  const invList = document.getElementById('settingsInviteList');
+  const res = document.getElementById('settingsInviteResult');
+  const ws = workspaceService.getCurrent();
+  if (!list || !ws) return;
+  if (res) res.style.display = 'none';
+  list.innerHTML = '<div class="tiny" style="padding:10px 0;color:var(--muted)">Loading team…</div>';
+  try {
+    const team = await workspaceService.listMembers();
+    list.innerHTML = team.map(m => {
+      const pending = m.status === 'pending';
+      const canRemove = ws.role === 'owner' && m.role === 'manager' && !m.isSelf;
+      const label = escHtml(m.displayName || 'Unnamed') + (m.isSelf ? ' <span class="tiny" style="color:var(--muted)">(you)</span>' : '');
+      return `<div class="row between align-center" style="padding:10px 0; border-bottom:1px solid var(--line); gap:8px">
+        <div style="min-width:0">
+          <div style="font-weight:700">${label}</div>
+          <div class="tiny" style="color:var(--muted)">${escHtml(workspaceService.roleLabel(m.role))}${pending ? ' · Account not connected' : ''}</div>
+        </div>
+        ${canRemove ? `<button class="btn ghost small" style="min-height:44px" onclick="handleRemoveManager('${escHtml(m.uid)}')">Remove</button>` : ''}
+      </div>`;
+    }).join('') || '<div class="tiny" style="padding:10px 0;color:var(--muted)">No team members yet.</div>';
+
+    if (ws.isLegacy) {
+      if (invArea) invArea.style.display = 'none';
+      list.insertAdjacentHTML('beforeend', '<div class="tiny" style="padding:10px 0;color:var(--muted)">Team invitations unlock once this workspace is upgraded.</div>');
+    } else {
+      if (invArea) invArea.style.display = 'block';
+      const invites = await workspaceService.listActiveInvites();
+      if (invList) {
+        invList.innerHTML = invites.map(i => `<div class="row between align-center" style="padding:6px 0; gap:8px">
+          <div class="tiny" style="color:var(--muted)">Pending manager invite · <b>${escHtml(i.code)}</b> · expires ${escHtml(i.expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))}</div>
+          <button class="btn ghost small" style="min-height:44px" onclick="handleRevokeInvite('${escHtml(i.code)}')">Revoke</button>
+        </div>`).join('');
+      }
+    }
+  } catch (err) {
+    list.innerHTML = `<div class="tiny" style="padding:10px 0;color:var(--muted)">${escHtml(friendlyErrorMessage(err))}</div>`;
+  }
+}
+
+async function handleCreateInvite() {
+  const btn = document.getElementById('settingsInviteBtn');
+  const res = document.getElementById('settingsInviteResult');
+  if (btn) btn.disabled = true;
+  try {
+    const inv = await workspaceService.createManagerInvite();
+    if (res) {
+      res.innerHTML = `Share this one-time invite (valid ${inv.ttlDays} days):<br><b style="font-size:16px; letter-spacing:1px">${escHtml(inv.code)}</b><br><span class="tiny" style="overflow-wrap:anywhere">${escHtml(inv.link)}</span>
+        <div class="row" style="gap:8px; margin-top:8px"><button class="btn soft small" style="min-height:44px" onclick="copyInviteLink('${escHtml(inv.link)}')">Copy link</button></div>`;
+      res.style.display = 'block';
+    }
+    renderSettingsTeamInvitesOnly();
+  } catch (err) {
+    showToast(friendlyErrorMessage(err));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function renderSettingsTeamInvitesOnly() {
+  const invList = document.getElementById('settingsInviteList');
+  if (!invList) return;
+  const invites = await workspaceService.listActiveInvites();
+  invList.innerHTML = invites.map(i => `<div class="row between align-center" style="padding:6px 0; gap:8px">
+    <div class="tiny" style="color:var(--muted)">Pending manager invite · <b>${escHtml(i.code)}</b> · expires ${escHtml(i.expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))}</div>
+    <button class="btn ghost small" style="min-height:44px" onclick="handleRevokeInvite('${escHtml(i.code)}')">Revoke</button>
+  </div>`).join('');
+}
+
+async function copyInviteLink(link) {
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('Invite link copied');
+  } catch (e) {
+    showToast('Select and copy the link above');
+  }
+}
+
+async function handleRevokeInvite(code) {
+  try {
+    await workspaceService.revokeInvite(code);
+    showToast('Invite revoked');
+    const res = document.getElementById('settingsInviteResult');
+    if (res) res.style.display = 'none';
+    renderSettingsTeamInvitesOnly();
+  } catch (err) {
+    showToast(friendlyErrorMessage(err));
+  }
+}
+
+async function handleRemoveManager(uid) {
+  if (!confirm('Remove this manager from the workspace? They will lose access immediately.')) return;
+  try {
+    await workspaceService.removeManager(uid);
+    showToast('Manager removed');
+    renderSettingsTeam();
+  } catch (err) {
+    showToast(friendlyErrorMessage(err));
+  }
 }
 
 function resetApp() {
@@ -3158,13 +3529,14 @@ function resetApp() {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+  capturePendingInvite();
   if (typeof window.isDemoMode === 'function' && window.isDemoMode()) {
     window.onAuthResolved(null, true);
   } else {
     const initAuth = () => {
       if (window.authService && window.FirebaseSDK) {
-        window.authService.init((user, isDemo) => {
-          if (window.onAuthResolved) window.onAuthResolved(user, isDemo);
+        window.authService.init((user, isDemo, state) => {
+          if (window.onAuthResolved) window.onAuthResolved(user, isDemo, state);
         });
       } else {
         setTimeout(initAuth, 30);

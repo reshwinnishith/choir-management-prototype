@@ -10,17 +10,17 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, writeBatch, connectFirestoreEmulator, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     window.FirebaseSDK = {
       initializeApp,
       getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, connectAuthEmulator, sendPasswordResetEmail,
-      getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, connectFirestoreEmulator, enableIndexedDbPersistence
+      getFirestore, collection, doc, getDoc, setDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, writeBatch, connectFirestoreEmulator, enableIndexedDbPersistence
     };
 
     if (window.authService) {
-      window.authService.init((user, isDemo) => {
-        if (window.onAuthResolved) window.onAuthResolved(user, isDemo);
+      window.authService.init((user, isDemo, state) => {
+        if (window.onAuthResolved) window.onAuthResolved(user, isDemo, state);
       });
     }
   </script>
@@ -40,7 +40,7 @@
       <div style="font-size: 42px; margin-bottom: 8px;">🎶</div>
       <div class="eyebrow">Choir Manager</div>
       <h1 style="font-size: 26px; margin-top: 4px;">Manager Workspace</h1>
-      <div class="sub" style="margin-top: 6px;">Sign in to your production choir workspace.</div>
+      <div class="sub" style="margin-top: 6px;" id="authHeroSub">Sign in with your own account.</div>
     </div>
 
     <div id="authFormPanel" class="card compact" style="padding: 20px;">
@@ -62,11 +62,43 @@
       </div>
 
       <div id="signUpExtraFields" style="display: none;">
-        <label>Manager / Choir Name</label>
-        <input id="authDisplayName" type="text" placeholder="e.g. Staccato Choir" style="margin-bottom: 16px;">
+        <label>Your Name *</label>
+        <input id="authDisplayName" type="text" placeholder="e.g. Philo" autocomplete="given-name" style="margin-bottom: 6px;">
+        <div class="tiny" style="color: var(--muted); margin-bottom: 16px;">This is your own account. You'll create or join a choir workspace next.</div>
       </div>
 
-      <button id="authSubmitBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px;" onclick="handleAuthSubmit()">Sign In to Workspace</button>
+      <button id="authSubmitBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px;" onclick="handleAuthSubmit()">Sign In</button>
+    </div>
+
+    <!-- ONBOARDING STEP 2: choose workspace action -->
+    <div id="authOnboardPanel" class="card compact" style="padding: 20px; display: none;">
+      <div class="eyebrow" id="onboardEyebrow">Step 2 of 2</div>
+      <h2 style="margin: 2px 0 4px;" id="onboardGreeting">What would you like to do?</h2>
+      <div class="sub" style="margin-bottom: 16px;">Your account is yours alone. A choir workspace is shared with the people you invite.</div>
+      <button type="button" class="btn primary full" style="padding: 14px; font-size: 15px; margin-bottom: 10px; min-height: 44px;" onclick="showOnboardPanel('create')">Create a Workspace</button>
+      <button type="button" class="btn soft full" style="padding: 14px; font-size: 15px; margin-bottom: 10px; min-height: 44px;" onclick="showOnboardPanel('join')">Join a Workspace</button>
+      <button type="button" id="onboardCancelBtn" class="btn ghost full" style="display: none; min-height: 44px;" onclick="cancelOnboarding()">Back to my workspace</button>
+      <button type="button" id="onboardSignOutBtn" class="btn ghost full" style="min-height: 44px; font-size: 13px;" onclick="handleSignOut()">Sign out</button>
+    </div>
+
+    <div id="authCreateWsPanel" class="card compact" style="padding: 20px; display: none;">
+      <h2 style="margin: 0 0 4px;">Create a Workspace</h2>
+      <div class="sub" style="margin-bottom: 16px;">You'll be the Owner of this choir workspace.</div>
+      <div id="createWsNotice" class="notice" style="display: none; margin-bottom: 12px; font-size: 13px;"></div>
+      <label>Choir / Workspace Name *</label>
+      <input id="createWsName" type="text" placeholder="e.g. Staccato Choir" style="margin-bottom: 16px;">
+      <button id="createWsBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px; margin-bottom: 10px; min-height: 44px;" onclick="handleCreateWorkspace()">Create Workspace</button>
+      <button type="button" class="btn ghost full" style="min-height: 44px;" onclick="showOnboardPanel('choose')">Back</button>
+    </div>
+
+    <div id="authJoinPanel" class="card compact" style="padding: 20px; display: none;">
+      <h2 style="margin: 0 0 4px;">Join a Workspace</h2>
+      <div class="sub" style="margin-bottom: 16px;">Paste the invite code or link a manager shared with you. Your role is set by the invite.</div>
+      <div id="joinNotice" class="notice" style="display: none; margin-bottom: 12px; font-size: 13px;"></div>
+      <label>Invite code or link *</label>
+      <input id="joinInviteCode" type="text" placeholder="e.g. K7M2QX9TDA" autocapitalize="characters" autocomplete="off" style="margin-bottom: 16px;">
+      <button id="joinWsBtn" type="button" class="btn primary full" style="padding: 12px; font-size: 15px; margin-bottom: 10px; min-height: 44px;" onclick="handleJoinWorkspace()">Join Workspace</button>
+      <button type="button" class="btn ghost full" style="min-height: 44px;" onclick="showOnboardPanel('choose')">Back</button>
     </div>
 
     <div id="authResetPanel" class="card compact" style="padding: 20px; display: none;">
@@ -704,11 +736,34 @@
 
     <div class="card compact" style="margin-top:14px">
       <div class="row between align-center">
-        <div>
-          <div class="title" id="settingsAccountEmail">Manager Account</div>
+        <div style="min-width:0">
+          <div class="title" id="settingsAccountName">Manager Account</div>
+          <div class="tiny" style="color:var(--muted); overflow-wrap:anywhere" id="settingsAccountEmail"></div>
           <div class="tiny" style="color:var(--muted)" id="settingsModeBadge">Cloud Workspace</div>
         </div>
         <span class="pill confirmed" id="settingsStatusPill">Active</span>
+      </div>
+      <button class="btn soft small full" id="settingsEditNameBtn" style="margin-top:10px; min-height:44px" onclick="openDisplayNameModal()">Edit my name</button>
+    </div>
+
+    <div id="settingsWorkspacesSection" style="display:none">
+      <div class="eyebrow" style="margin-top:18px">Workspaces</div>
+      <div class="card compact" style="margin-top:6px; padding:6px 12px">
+        <div id="settingsWorkspaceList"></div>
+        <button class="btn ghost full" style="min-height:44px; justify-content:flex-start" onclick="startWorkspaceFlow('join')">＋ Join Workspace</button>
+        <button class="btn ghost full" style="min-height:44px; justify-content:flex-start" onclick="startWorkspaceFlow('create')">＋ Create Workspace</button>
+      </div>
+    </div>
+
+    <div id="settingsTeamSection" style="display:none">
+      <div class="eyebrow" style="margin-top:18px">Team</div>
+      <div class="card compact" style="margin-top:6px; padding:6px 12px">
+        <div id="settingsTeamList"></div>
+      </div>
+      <div id="settingsInviteArea" style="margin-top:10px">
+        <div id="settingsInviteList"></div>
+        <button class="btn soft full" style="min-height:44px" id="settingsInviteBtn" onclick="handleCreateInvite()">Invite Manager</button>
+        <div id="settingsInviteResult" class="notice notice-success" style="display:none; margin-top:10px; font-size:13px"></div>
       </div>
     </div>
 
@@ -718,6 +773,23 @@
 
     <div id="demoResetContainer" style="display:none; margin-top:16px">
       <button class="btn soft full" onclick="resetApp()">Start Fresh (Reset Demo Data)</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DISPLAY NAME -->
+<div id="displayNameModal" class="modalwrap" onclick="if(event.target===this)closeModal('displayNameModal')">
+  <div class="modal">
+    <div class="handle"></div>
+    <div class="eyebrow">Your Profile</div>
+    <h2 id="displayNameTitle">What should we call you?</h2>
+    <div class="sub" style="margin-bottom:12px">This name appears in your greeting and the team list.</div>
+    <div id="displayNameNotice" class="notice notice-error" style="display:none; margin-bottom:10px; font-size:13px"></div>
+    <label>Your Name *</label>
+    <input id="displayNameInput" type="text" placeholder="e.g. Philo" autocomplete="given-name" style="margin-bottom:14px">
+    <div class="sticky-modal-footer row" style="gap:8px">
+      <button class="btn primary full" style="flex:1; min-height:44px" onclick="saveDisplayName()">Save</button>
+      <button class="btn ghost small" style="min-height:44px" onclick="closeModal('displayNameModal')">Not now</button>
     </div>
   </div>
 </div>
