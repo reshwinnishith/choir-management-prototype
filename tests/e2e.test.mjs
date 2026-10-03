@@ -199,6 +199,56 @@ test('Sheena: own account, joins ELFE via invite LINK, role from invite, sees EL
   assert.match(team, /Sheena \(you\) Manager/);
   // can do operational writes as Manager
   await page.evaluate(async () => { closeModal('settingsModal'); await peopleService.create({ name: 'Added By Sheena' }); });
+  // Manager invite did NOT alter workspace.ownerUid (remains null for pending Roe Vincent)
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const wsSnap = await ctx.firestore().collection('workspaces').doc('ws_philo').get();
+    assert.equal(wsSnap.data().ownerUid, null);
+  });
+  await page.context().close();
+});
+
+test('Roe Vincent: joins ELFE via admin-created Owner invite, updates workspace.ownerUid, sees ELFE data', async () => {
+  let roeUid;
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'invites', 'ROEOWNER01'), {
+      workspaceId: 'ws_philo', workspaceName: 'ELFE', role: 'owner', status: 'active',
+      createdByUid: philoUid, createdAt: new Date(), expiresAt: new Date(Date.now() + 864e5)
+    });
+  });
+  const page = await newPage();
+  page._inviteQuery = '/?invite=ROEOWNER01';
+  roeUid = await authSignUp('roe@test.dev', 'secret123');
+  await page.goto(base + '/?invite=ROEOWNER01');
+  await page.fill('#authEmail', 'roe@test.dev');
+  await page.fill('#authPassword', 'secret123');
+  await page.fill('#authDisplayName', 'Roe Vincent');
+  await page.click('#authSubmitBtn');
+  await page.waitForSelector('#authJoinPanel', { state: 'visible' });
+  assert.equal(await page.inputValue('#joinInviteCode'), 'ROEOWNER01');
+  await page.click('#joinWsBtn');
+  await page.waitForSelector('#appContainer', { state: 'visible' });
+  assert.match(await text(page, '#homeSubHeader'), /^Owner . ELFE$/);
+
+  // Verify workspace.ownerUid was updated to Roe\'s UID
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const wsSnap = await ctx.firestore().collection('workspaces').doc('ws_philo').get();
+    assert.equal(wsSnap.data().ownerUid, roeUid);
+    assert.equal(wsSnap.data().ownerDisplayName, 'Roe Vincent');
+  });
+
+  // Verify choir data preserved (Anna Philo, Added By Sheena)
+  const people = await page.evaluate(() => peopleService.getAll().map(p => p.name));
+  assert.ok(people.includes('Anna Philo'));
+  assert.ok(people.includes('Added By Sheena'));
+
+  // Settings team modal: Roe is connected Owner, Philo is Manager, Sheena is Manager
+  await page.evaluate(() => openSettings());
+  await page.waitForSelector('#settingsTeamList >> text=Roe Vincent');
+  const team = await text(page, '#settingsTeamList');
+  assert.match(team, /Roe Vincent \(you\) Owner/);
+  assert.match(team, /Philo Manager/);
+  assert.match(team, /Sheena Manager/);
+
   await page.context().close();
 });
 

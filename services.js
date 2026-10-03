@@ -640,6 +640,12 @@ const workspaceService = {
       uid: user.uid, role: raw.role, status: 'active', displayName,
       joinedAt: SDK.serverTimestamp(), invitedByUid: raw.createdByUid, inviteId: inv.code
     });
+    if (raw.role === 'owner') {
+      b.update(SDK.doc(db, 'workspaces', inv.workspaceId), {
+        ownerUid: user.uid,
+        updatedAt: SDK.serverTimestamp()
+      });
+    }
     b.set(SDK.doc(db, 'users', user.uid, 'memberships', inv.workspaceId), {
       workspaceId: inv.workspaceId, workspaceName: inv.workspaceName, role: raw.role, joinedAt: SDK.serverTimestamp()
     });
@@ -1323,6 +1329,7 @@ function getSingerHistory(personId) {
 
 // Global Browser Exports
 window.authService = authService;
+window.workspaceService = workspaceService;
 window.firestoreDataProvider = firestoreDataProvider;
 window.localDataProvider = localDataProvider;
 window.peopleService = peopleService;
