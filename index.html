@@ -767,6 +767,15 @@
       </div>
     </div>
 
+    <div id="settingsDataBackupSection" style="margin-top:18px">
+      <div class="eyebrow">Data &amp; Backup</div>
+      <div class="card compact" style="margin-top:6px; padding:12px">
+        <div style="font-weight:600; font-size:14px; margin-bottom:4px">Keep an independent copy of your choir data.</div>
+        <div class="tiny" style="color:var(--muted); line-height:1.4; margin-bottom:12px">Creates an Excel file containing the current workspace's roster, events and supporting data. Nothing is changed in Choir Manager.</div>
+        <button type="button" class="btn soft full" id="downloadBackupBtn" style="min-height:44px" onclick="handleDownloadBackup()">Download Excel Backup</button>
+      </div>
+    </div>
+
     <div style="margin-top:16px" id="productionSignOutContainer">
       <button class="btn danger full" onclick="handleSignOut()">Sign Out</button>
     </div>
@@ -901,6 +910,8 @@
 <script src="firebase-config.js"></script>
 <script src="india-cities.js"></script>
 <script src="services.js"></script>
+<script src="vendor/xlsx.mini.min.js"></script>
+<script src="backup-service.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

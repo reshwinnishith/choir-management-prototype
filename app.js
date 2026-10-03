@@ -3527,6 +3527,35 @@ function resetApp() {
   }
 }
 
+// --- Client Safety Backup Handler (v1.9A) ---
+async function handleDownloadBackup() {
+  const btn = document.getElementById('downloadBackupBtn');
+  const origText = btn ? btn.textContent : 'Download Excel Backup';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Generating backup...';
+  }
+  try {
+    if (!window.backupService || typeof window.backupService.downloadWorkspaceBackup !== 'function') {
+      throw new Error('Backup service is unavailable. Please reload the page.');
+    }
+    const result = await window.backupService.downloadWorkspaceBackup();
+    showToast(`Backup downloaded: ${result.filename}`);
+  } catch (err) {
+    console.error('[Backup Error]:', err);
+    const msg = (typeof friendlyErrorMessage === 'function')
+      ? friendlyErrorMessage(err)
+      : (err && err.message ? err.message : 'Could not generate backup file');
+    showToast(msg || 'Could not generate backup file');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+}
+window.handleDownloadBackup = handleDownloadBackup;
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   capturePendingInvite();
