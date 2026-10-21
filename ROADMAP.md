@@ -1,573 +1,752 @@
-# Choir Management — Product Bible & Roadmap
+# Choir Manager Roadmap
 
-> **Standing instruction for every contributor or AI working in this repository:**  
-> Read this file before making product, architecture, data-model, migration, or release decisions.  
-> Update it whenever a milestone is completed, a major decision changes, or a new feature is accepted into scope.  
-> Do not silently change product direction. If implementation reality conflicts with this document, stop and reconcile the conflict first.
+> **Purpose of this document**
+>
+> This is the execution map for Choir Manager.
+> It tells any contributor or AI **what has been completed, where the project is now, what comes next, and in what order**.
+>
+> Read **[CHOIR_MANAGER_BIBLE.md](./CHOIR_MANAGER_BIBLE.md)** first for product boundaries and non-negotiable principles.
+>
+> Update this Roadmap whenever a milestone changes state, a production rollout completes, or an accepted feature is promoted into scheduled work.
 
 ---
 
-## 1. What this app is
+## 1. Current state — read this first
 
-Choir Management is a lightweight operational system for running a working choir.
+**Source of truth:** `main`
 
-Its job is to replace scattered spreadsheets, chats, memory, and ad-hoc admin with one simple place to manage:
+**Implementation baseline entering this Roadmap split:**  
+`28fee9846fd8893cd3f2b889538d9a6cbf0b18dd` — **v1.9B — complete pending owner account linking**
 
-- enquiries and confirmed events
+### Current status
+
+Code through **v1.9B** is complete and pushed.
+
+The project stopped immediately before the controlled production rollout of:
+
+- v1.9 workspace memberships / multi-manager foundation
+- v1.9A Excel safety backup
+- v1.9B pending Owner account linking fix
+
+### Important distinction
+
+**Implemented does not yet mean fully live.**
+
+The new membership model should not be considered production-complete until:
+
+- new Firestore rules are deployed
+- the current app is deployed
+- QA workspace migration passes
+- Philo / ELFE migration passes
+- live verification passes
+
+### Current real pilot target
+
+Workspace: **ELFE**
+
+Target ownership/membership state after migration:
+
+- **Roe Vincent** — Owner, account not connected yet
+- **Philo** — Manager, active account
+- **Sheena** — Manager, to be invited after migration
+
+Do not create Roe or Sheena accounts as part of the migration itself.
+
+---
+
+## 2. Status legend
+
+- ✅ **DONE** — implemented and verified for its milestone
+- 🟡 **NEXT / ACTIVE** — current execution target
+- ⏳ **PLANNED** — accepted, not started
+- 💡 **BACKLOG** — useful idea, not scheduled
+- 🚫 **OUT OF SCOPE** — deliberately not part of current plan
+
+---
+
+## 3. Completed milestones
+
+### ✅ v1.6A — Service/data foundation
+Completed:
+
+- stable service layer
+- separation between UI and data provider
+- groundwork for cloud/local modes
+
+### ✅ v1.6B — Reusable operating entities
+Completed:
+
 - clients
 - venues
 - event types
-- singers / roster
-- event lineups
-- singer availability
-- tags and performance/language suitability
-- managers and ownership
-- calendar / agenda views
-- operational statistics
-- safe client-side backups
+- rebuilt event creation workflow
+- reusable stable IDs
 
-The primary success criterion is **clarity for a non-technical choir manager**.
+### ✅ v1.6C / v1.6D — Core operating UX
+Completed:
 
-This is not primarily a “software product for software people.”  
-It is an operations tool for people who need to answer questions such as:
+- roster improvements
+- calendar
+- agenda/upcoming flows
+- assignment interaction
+- lineup workflows
+- duplicate/copy-lineup behavior
+- mobile-density improvements
 
-- What shows are coming up?
-- Which enquiries still need action?
-- Who is singing?
-- Who is available?
-- Who has sung the most recently?
-- Which client / venue / event type is this?
-- How much is the event worth?
-- Who manages this workspace?
-- Can I safely keep an independent copy of my data?
+### ✅ v1.7 — Firebase cloud foundation
+Completed:
 
----
-
-## 2. What this app is not
-
-Unless deliberately added to this roadmap, the app is **not**:
-
-- a payroll or accounting system
-- a full CRM
-- a public booking marketplace
-- a ticketing platform
-- a singer social network
-- a chat replacement
-- a file-storage product
-- a Google Drive replacement
-- an automated payroll/disbursement system
-- a complex ERP
-- a “feature-rich at all costs” admin panel
-
-When in doubt, prefer the smallest workflow that makes the choir manager’s real job easier.
-
----
-
-## 3. Product principles
-
-### 3.1 Simplicity over completeness
-A smaller, obvious workflow is better than a powerful workflow that needs explanation.
-
-### 3.2 Operational truth over decoration
-Home, Calendar, Roster, Events, Team, and Statistics should surface actionable operational truth first.
-
-### 3.3 Reusable data
-Clients, venues, event types, tags, and singers are reusable entities. Do not duplicate them unnecessarily inside events.
-
-### 3.4 Firestore is authoritative
-Firestore is the live source of truth for production workspaces.
-
-Exports are safety copies, not a second database.
-
-### 3.5 Workspace isolation is non-negotiable
-One workspace must never see another workspace’s data.
-
-### 3.6 Roles are workspace-specific
-A person account is separate from their role in a choir workspace.
-
-Current role model:
-
-- Owner
-- Manager
-
-### 3.7 Historical data should survive
-Inactive members, old clients, old venues, old event types, and past events should remain available where useful rather than being destructively removed.
-
-### 3.8 Mobile usability matters
-The application must remain usable on narrow mobile widths.
-
-Primary regression widths:
-
-- 320 px
-- 375 px
-- 390 px
-- 430 px
-
-### 3.9 Production writes must be intentional
-Migration, rules deployment, production data changes, and destructive actions require an explicit execution step.
-
-Do not improvise production repair while performing an unrelated task.
-
----
-
-## 4. Core domain model
-
-### Person account
-
-`users/{uid}`
-
-Represents a human account.
-
-### Workspace membership
-
-`workspaces/{workspaceId}/members/{uid}`
-
-Represents that person’s role in a specific workspace.
-
-Roles:
-
-- `owner`
-- `manager`
-
-### Membership hint
-
-`users/{uid}/memberships/{workspaceId}`
-
-Used to locate a user’s workspaces efficiently.
-
-### Workspace
-
-`workspaces/{workspaceId}`
-
-Important ownership fields include:
-
-- `accessModel`
-- `ownerUid`
-- `ownerDisplayName`
-- `legacyOwnerUid` during migration compatibility
-
-### Invites
-
-`invites/{code}`
-
-Current intended behavior:
-
-- one-time
-- expiring
-- role comes from the stored invite, never from user input
-- Manager invites must never mutate `workspace.ownerUid`
-- an admin-created Owner invite may link a pending real owner
-- accepting a valid Owner invite updates `workspace.ownerUid` in the same atomic batch
-
----
-
-## 5. Core operating data
-
-The current product model includes:
-
-### Events
-- enquiry and confirmed states
-- date
-- venue
-- show time
-- client
-- event type / category
-- singer requirement
-- budget
-- notes
-- manager
-- lineup
-
-### Roster
-- singer name
-- gender
-- active/inactive status
-- availability state
-- tags
-- language / performance suitability
-- historical assignment usage
-
-### Reusable reference data
-- clients
-- venues
-- event types
-- tags
-- cities
-
-### Statistics
-Includes operational counts and singer participation summaries.
-
-### Backup
-The user can export a normal `.xlsx` workbook that exists independently of the application.
-
-Current workbook contains 9 sheets:
-
-1. Summary
-2. Events
-3. Event Lineups
-4. Roster
-5. Clients
-6. Venues
-7. Event Types
-8. Tags
-9. Team
-
-The export is read-only with respect to Firestore.
-
----
-
-## 6. Current technical shape
-
-Current implementation is intentionally simple:
-
-- browser-based frontend
 - Firebase Authentication
 - Cloud Firestore
-- Firestore Security Rules
-- Vercel deployment
-- service layer in `services.js`
-- migration tooling in `scripts/`
-- tests in `tests/`
-- local pinned SheetJS for Excel export
+- production/demo separation
+- workspace-scoped data
+- service-provider cloud implementation
 
-Do not introduce a major framework rewrite unless there is a concrete product or maintenance reason.
+### ✅ v1.7.1 — Firebase activation / event-type system
+Completed:
+
+- production Firebase activation
+- tested security foundation
+- flexible Event Types
+- archive/rename/merge behaviors
+
+### ✅ v1.7.2 — Event workflow polish
+Completed:
+
+- contextual event naming
+- improved event hierarchy
+- singer tag refinements
+- Indian budget presentation
+- Home/card refinements
+
+### ✅ v1.8A — Client onboarding hardening
+Completed:
+
+- forgot-password flow
+- loading/auth race handling
+- improved empty states
+- calmer production errors
+- terminology cleanup
+- mobile review
+
+### ✅ v1.8B — Production Firestore ID fix
+Completed:
+
+- fixed inline event handlers that broke with Firestore string IDs
+- live production verification performed
+- public v1.8B pilot build declared ready
+
+### ✅ v1.9 — Personal accounts + workspace memberships
+Completed in code:
+
+- person account separated from choir workspace
+- workspace-specific Owner / Manager roles
+- membership documents
+- workspace switching
+- manager invite/join flow
+- pending business owner representation
+- hardened Firestore rules
+- migration tooling
+- security/migration/E2E tests
+
+### ✅ v1.9A — Client Excel safety backup
+Completed in code:
+
+- Download Excel Backup
+- real XLSX workbook
+- 9 sheets
+- current-workspace isolation
+- demo isolation
+- formula-injection protection
+- Unicode/Tamil support
+- numeric budget cells
+- local pinned SheetJS
+- backup tests and mobile E2E
+
+### ✅ v1.9B — Pending Owner account linking
+Completed in code:
+
+- valid admin-created Owner invite links `workspace.ownerUid`
+- Manager invites do not alter ownership
+- owner linking occurs atomically with join
+- dedicated ownership tests
+- role-forgery protection retained
 
 ---
 
-## 7. Current release state
+## 4. 🟡 Active milestone — controlled v1.9 production rollout
 
-### Completed
+This is the next work.
 
-- [x] v1.6A — stable data foundation and service layer
-- [x] v1.6B — reusable clients, venues, event types, rebuilt event workflow
-- [x] v1.6C / v1.6D — roster, lineup, calendar, agenda, mobile UX refinements
-- [x] v1.7 — Firebase cloud foundation
-- [x] v1.7.1 — live Firebase activation and flexible event types
-- [x] v1.7.2 — event workflow cards and singer tag refinements
-- [x] v1.8A — client onboarding and account UX hardening
-- [x] v1.8B — live production fix for Firestore string event IDs
-- [x] v1.9 — workspace migration model, memberships, hardened Firestore rules, migration tooling
-- [x] v1.9A — client Excel safety backup
-- [x] v1.9B — complete pending Owner account linking
+Do not start unrelated feature work before this is resolved.
 
-### Current code source of truth
+### Required order
 
-`main`
+1. Read-only production preflight
+2. Migration authentication dry run
+3. Deploy new Firestore rules
+4. Deploy current app to existing Vercel project
+5. Migrate QA workspace as canary
+6. Migrate Philo / ELFE
+7. Live Philo verification
 
-Current reviewed head before this roadmap is added:
-
-`28fee9846fd8893cd3f2b889538d9a6cbf0b18dd`
-
-### Important current status
-
-The code for v1.9 / v1.9A / v1.9B is complete and pushed.
-
-**The controlled production rollout is still pending.**
-
-Do not treat the new membership model as fully live until the rollout below is completed and verified.
+The order matters.
 
 ---
 
-## 8. Immediate next milestone — production rollout
+## 5. Phase 1 — read-only production preflight
 
-### v1.9 Production Rollout
+Status: 🟡 NEXT
 
-Run in this order.
+Verify without production writes:
 
-#### Phase 1 — Read-only preflight
-- [ ] Confirm expected Git HEAD and clean working state
-- [ ] Confirm Firebase project
-- [ ] Confirm existing Vercel project
-- [ ] Inspect current deployed Firestore rules
-- [ ] Inspect Philo’s current production workspace state
-- [ ] Record pre-migration data counts
-- [ ] Confirm no unexpected production workspaces
+- [ ] Git HEAD is expected and working tree is clean
+- [ ] Firebase project is exactly `choir-manager-46446`
+- [ ] correct Firebase account is authenticated
+- [ ] Vercel project is the existing `choir-management-prototype`
+- [ ] inspect currently deployed Firestore rules
+- [ ] inspect currently deployed Vercel version
+- [ ] QA workspace still exists
+- [ ] Philo production Auth account still exists
+- [ ] no unexpected real workspaces exist
 
-#### Phase 2 — Migration authentication dry run
-- [ ] Verify Firebase Admin `applicationDefault()` authentication
-- [ ] Dry-run QA migration
-- [ ] Dry-run Philo migration
-- [ ] Confirm dry run proposes only intended membership/workspace/profile writes
-- [ ] Confirm no choir operational data will be changed
+For Philo, determine from production rather than assumption:
 
-#### Phase 3 — Firestore rules
-- [ ] Deploy new rules first
-- [ ] Verify deployed rules match repository rules
-- [ ] Confirm legacy QA still reads
-- [ ] Confirm legacy Philo workspace still reads
-- [ ] Confirm cross-workspace isolation still holds
+- [ ] UID
+- [ ] currentWorkspaceId
+- [ ] workspace name
+- [ ] current ownerUid
+- [ ] accessModel
+- [ ] current member documents
+- [ ] people count
+- [ ] tags count
+- [ ] clients count
+- [ ] venues count
+- [ ] eventTypes count
+- [ ] events count
 
-#### Phase 4 — Application deploy
-- [ ] Deploy current `main` to existing Vercel project
-- [ ] Do not create a second Vercel project
-- [ ] Confirm login
-- [ ] Confirm Home
-- [ ] Confirm Calendar
-- [ ] Confirm Roster
-- [ ] Confirm Statistics
-- [ ] Confirm Settings
-- [ ] Confirm Excel backup
-- [ ] Confirm no console or permission errors
+Record these as the pre-migration baseline.
 
-#### Phase 5 — QA canary migration
-- [ ] Repeat QA dry run
-- [ ] Apply QA migration
-- [ ] Confirm QA becomes membership-based
-- [ ] Confirm owner role remains correct
-- [ ] Compare data counts
-- [ ] Confirm normal CRUD
-- [ ] Confirm Excel backup
+### Stop condition
 
-#### Phase 6 — Philo / ELFE migration
-Target state:
+If production shape differs materially from the expected legacy workspace model, stop before any write.
 
-- Workspace name: **ELFE**
-- Business owner: **Roe Vincent**
-- Connected owner account: **none yet**
-- Philo: **Manager**
+---
 
-Checklist:
+## 6. Phase 2 — migration authentication and dry run
 
-- [ ] Repeat Philo dry run immediately before apply
-- [ ] Apply migration
+Status: ⏳ PLANNED
+
+Migration script:
+
+`scripts/migrate-workspace.mjs`
+
+Important implementation detail:
+
+The script uses Firebase Admin SDK `applicationDefault()`.
+
+A normal Firebase CLI login may not be sufficient.
+
+### Required checks
+
+- [ ] prove the script can authenticate to production using **dry run only**
+- [ ] dry-run QA workspace
+- [ ] dry-run Philo workspace
+
+Do **not** use `--apply` during this phase.
+
+### Expected Philo dry-run target
+
+Mode:
+
+`legacy-owner-as-manager`
+
+Target:
+
+- workspace name → **ELFE**
+- business Owner display name → **Roe Vincent**
+- Philo display name → **Philo**
+- Philo role → **Manager**
+- connected Owner UID → **none yet**
+
+Expected write plan only:
+
+1. create Philo member document as Manager
+2. create Philo workspace-membership hint
+3. update Philo profile display name
+4. update workspace membership/ownership metadata
+
+No roster/events/clients/venues/event types should be changed.
+
+### Stop condition
+
+If Application Default Credentials are unavailable, stop and choose an explicit authentication method before continuing.
+
+Do not improvise service-account key creation.
+
+---
+
+## 7. Phase 3 — deploy new Firestore rules
+
+Status: ⏳ PLANNED
+
+Deploy repository `firestore.rules` to:
+
+`choir-manager-46446`
+
+Do not deploy Firebase Hosting.
+
+After deployment:
+
+- [ ] deployed rules match repository rules
+- [ ] legacy QA still reads its workspace
+- [ ] legacy Philo still reads her workspace
+- [ ] non-members remain denied
+- [ ] cross-workspace isolation remains intact
+
+### Why rules deploy before migration
+
+The new rules contain compatibility for legacy workspaces while also understanding membership-native workspaces.
+
+This creates the safe bridge for migration.
+
+### Stop condition
+
+If QA or Philo loses access, stop immediately.
+
+---
+
+## 8. Phase 4 — deploy current application
+
+Status: ⏳ PLANNED
+
+Deploy current `main` to the existing Vercel project:
+
+`choir-management-prototype`
+
+Production URL:
+
+`https://choir-management-prototype.vercel.app`
+
+Do not create another Vercel project.
+
+### Verify before migrating Philo
+
+While Philo is still legacy:
+
+- [ ] login
+- [ ] Home
+- [ ] Calendar
+- [ ] Roster
+- [ ] Statistics
+- [ ] Settings
+- [ ] Excel backup control
+- [ ] no console errors
+- [ ] no Firestore permission errors
+
+Legacy Team/Invite limitations are acceptable until migration.
+
+### Stop condition
+
+If the new app cannot safely operate against the legacy workspace, stop before migration.
+
+---
+
+## 9. Phase 5 — QA canary migration
+
+Status: ⏳ PLANNED
+
+QA account:
+
+`demo@choirmanager.test`
+
+Known historical QA workspace:
+
+`ws_epnFVRBc`
+
+### Procedure
+
+- [ ] repeat QA dry run
+- [ ] apply only with exact matching `--confirm`
+- [ ] verify `accessModel = members`
+- [ ] QA membership role = Owner
+- [ ] `ownerUid` remains QA UID
+- [ ] operational data counts unchanged
+- [ ] QA login still works
+- [ ] normal CRUD works
+- [ ] Excel backup works
+
+### Stop condition
+
+If QA fails or data counts unexpectedly change, do not migrate Philo.
+
+---
+
+## 10. Phase 6 — Philo / ELFE migration
+
+Status: ⏳ PLANNED
+
+Only continue after QA canary passes.
+
+### Desired target
+
+Workspace:
+
+**ELFE**
+
+Business Owner:
+
+**Roe Vincent**
+
+Connected Owner account:
+
+**none yet**
+
+Manager:
+
+**Philo**
+
+### Required final workspace state
+
+- [ ] `name = ELFE`
 - [ ] `accessModel = members`
 - [ ] `ownerUid = null`
 - [ ] `ownerDisplayName = Roe Vincent`
 - [ ] `legacyOwnerUid = Philo UID`
-- [ ] Philo membership role = Manager
-- [ ] Philo display name = Philo
-- [ ] Membership hint created
-- [ ] All existing operational data counts unchanged
 
-#### Phase 7 — Live production verification
-- [ ] Header shows **Hello, Philo**
-- [ ] Header shows **Manager · ELFE**
-- [ ] Team shows Roe Vincent as pending/unconnected Owner
-- [ ] Team shows Philo as active Manager
+### Required Philo state
+
+- [ ] member role = Manager
+- [ ] member status = active
+- [ ] display name = Philo
+- [ ] currentWorkspaceId unchanged
+- [ ] workspace membership hint exists and says Manager
+
+### Data preservation
+
+Compare pre/post counts:
+
+- [ ] people unchanged
+- [ ] tags unchanged
+- [ ] clients unchanged
+- [ ] venues unchanged
+- [ ] eventTypes unchanged
+- [ ] events unchanged
+
+---
+
+## 11. Phase 7 — live production verification
+
+Status: ⏳ PLANNED
+
+Log in as Philo through the public app.
+
+Expected header:
+
+**Hello, Philo 👋**  
+**Manager · ELFE**
+
+Expected Team state:
+
+- **Roe Vincent — Owner — account not connected / pending equivalent**
+- **Philo — Manager — Active**
+
+Verify:
+
 - [ ] Home works
 - [ ] Calendar works
 - [ ] Roster works
 - [ ] Statistics works
-- [ ] normal create/read/update flows work
-- [ ] Team page works
+- [ ] Clients work
+- [ ] Venues work
+- [ ] Event Types work
+- [ ] normal operational writes work
+- [ ] Team works
 - [ ] Manager invite can be generated
 - [ ] unused Manager invite can be revoked
-- [ ] Excel backup downloads
-- [ ] 320 / 375 / 390 / 430 px checks pass
+- [ ] Excel backup downloads correctly
 - [ ] no console errors
 - [ ] no Firestore permission errors
+- [ ] 320 px
+- [ ] 375 px
+- [ ] 390 px
+- [ ] 430 px
 
-### Explicitly not part of this rollout
-
-- [ ] Do **not** create Sheena yet
-- [ ] Do **not** create Roe’s account yet
-- [ ] Do **not** create Roe’s Owner invite yet
-- [ ] Do **not** import a new real roster during migration
-- [ ] Do **not** enable unrelated billing/PITR/backup work
-- [ ] Do **not** redesign the app during rollout
+Do not leave temporary production test records behind.
 
 ---
 
-## 9. After v1.9 production is stable
+## 12. Definition of production-rollout complete
 
-These are the next product decisions, in order.
+v1.9 / v1.9A / v1.9B become **LIVE** only when:
 
-### v1.10 — Real team onboarding
-Goal: move from a migrated single-manager workspace to a real shared-management workspace.
+- [ ] new rules deployed and verified
+- [ ] current Vercel app deployed
+- [ ] QA migrated successfully
+- [ ] Philo workspace migrated successfully
+- [ ] all operational data counts match
+- [ ] live Philo verification passes
+- [ ] Roadmap updated to mark rollout complete
 
-- [ ] Invite Sheena as Manager
-- [ ] Verify independent login
-- [ ] Verify shared workspace access
-- [ ] Verify role display
-- [ ] Verify concurrent manager workflows
-- [ ] Decide timing for Roe account connection
-- [ ] Create admin-controlled Owner invite only when ready
-- [ ] Connect Roe as Owner
-- [ ] Verify `ownerUid` linking
-- [ ] Verify Philo remains Manager
-- [ ] Verify no workspace data changes during owner linking
+Until then, the status remains:
 
-### v1.11 — Operational polish
-Candidate scope, only after real usage feedback:
+**implemented, pushed, production rollout pending**
 
-- [ ] refine “Needs Attention” logic from actual manager usage
-- [ ] improve singer rotation / fairness visibility
+---
+
+## 13. ⏳ Next milestone — real team onboarding
+
+Target version: **v1.10**
+
+Begin only after production rollout is stable.
+
+### Sheena
+
+- [ ] generate Manager invite
+- [ ] Sheena creates/uses her own personal account
+- [ ] join ELFE
+- [ ] verify Manager role
+- [ ] verify shared data access
+- [ ] verify independent login
+- [ ] verify Philo + Sheena can operate the same workspace
+
+### Roe Vincent
+
+Do not connect Roe merely for technical completeness.
+
+When ready:
+
+- [ ] obtain/use Roe's real personal account
+- [ ] admin-create Owner invite
+- [ ] Roe joins ELFE
+- [ ] verify Owner membership
+- [ ] verify `workspace.ownerUid` links to Roe UID
+- [ ] verify `ownerDisplayName` remains correct
+- [ ] verify Philo remains Manager
+- [ ] verify Sheena remains Manager
+- [ ] verify operational data unchanged
+
+---
+
+## 14. ⏳ Real-data onboarding
+
+Timing: after the membership model is live and stable.
+
+The client should receive a useful workspace, not a prototype database.
+
+### Import only trusted data
+
+Candidate starting data:
+
+- real singer roster
+- confirmed membership tags
+- confirmed language tags
+- confirmed eligibility tags
+- useful real recurring clients where reliable
+- useful real venues where reliable
+
+### Do not import
+
+- fake/demo events
+- prototype assignments
+- test availability
+- invented budgets
+- synthetic clients
+- synthetic venues
+- uncertain singer classifications
+
+Historical data should be imported only when the source is reliable enough to justify it.
+
+The old prototype spreadsheet contents must not automatically be treated as production truth.
+
+---
+
+## 15. ⏳ Operational polish after real use
+
+Target: **v1.11**, scope determined by pilot feedback.
+
+Candidate work:
+
+- [ ] refine Needs Attention from actual manager behaviour
+- [ ] reduce repetitive event entry
 - [ ] improve lineup assignment ergonomics
-- [ ] refine statistics that managers actually use
-- [ ] reduce repetitive event-entry work
-- [ ] improve mobile friction found during live use
+- [ ] improve repeat/duplicate workflows
+- [ ] refine singer rotation visibility
+- [ ] refine useful manager statistics
+- [ ] fix mobile friction found in real usage
 
-### v1.12 — Reliability and data safety
-Candidate scope:
+Do not pre-build all of these.
 
-- [ ] review production backup strategy beyond manual XLSX
-- [ ] decide whether PITR is justified
+Promote only what real use validates.
+
+---
+
+## 16. ⏳ Reliability and data safety
+
+Target: **v1.12** or earlier if production risk warrants it.
+
+Current safety layer:
+
+- manual Excel backup exists
+
+Future reliability decisions:
+
+- [ ] define proper Firestore backup strategy
+- [ ] evaluate PITR / billing implications
+- [ ] decide whether scheduled backups are needed
+- [ ] consider optional organisation-controlled Google Drive backup
 - [ ] define restore/import policy
-- [ ] remove temporary migration compatibility only when safe
-- [ ] remove `legacyAccess()` only after every production workspace is migrated
+- [ ] test recovery procedure
+- [ ] remove legacy-access compatibility only when every production workspace is migrated
 
-Do not build restore/import merely because export exists. Restore requires an explicit data-integrity design.
+Do not create two-way spreadsheet synchronization.
+
+Firestore stays authoritative.
 
 ---
 
-## 10. Backlog — accepted ideas, not yet scheduled
+## 17. 💡 Backlog — accepted ideas, not scheduled
 
-These may be useful but are not automatically approved for the next version.
+These are not promises and should not be started automatically.
 
-- singer availability improvements
+- singer availability self-service
 - fair-rotation assistance
-- richer monthly/yearly statistics
-- more useful event follow-up states
-- better event duplication / lineup reuse
+- richer monthly/yearly stats
+- event follow-up states
+- better lineup reuse
 - workflow notifications
-- owner/admin account lifecycle improvements
-- optional cloud backup integrations
-- richer audit/history if operational need appears
+- richer activity/history
+- optional cloud-backup integration
+- owner transfer UX
+- additional roles if real operations require them
+- singer accounts if the product eventually justifies the added complexity
+- restore/import tooling after a recovery design exists
 
-A backlog item becomes roadmap work only when it is deliberately promoted into a version milestone.
+A backlog item becomes scheduled only when deliberately promoted into a milestone.
 
 ---
 
-## 11. Replanning rules
+## 18. 🚫 Explicitly out of scope for the current rollout
 
-Do not replan simply because a new idea appears.
+Do not combine any of these with the production migration:
 
-Replan when one or more of these is true:
+- creating Sheena's production account
+- creating Roe's production account
+- creating Roe's Owner invite
+- importing a new roster
+- enabling unrelated billing
+- enabling PITR
+- building automatic cloud backup
+- restore/import
+- framework rewrite
+- Calendar redesign
+- unrelated UX feature work
+
+Keep rollout scope narrow.
+
+---
+
+## 19. Replanning triggers
+
+Replan when one of these is true:
 
 ### Product trigger
 Real users repeatedly struggle with the same workflow.
 
 ### Safety trigger
-A change risks data loss, workspace leakage, role escalation, or account lockout.
+A change risks data loss, workspace leakage, account lockout, or role escalation.
 
 ### Architecture trigger
-The current implementation makes a simple product requirement disproportionately difficult or fragile.
+A simple product requirement becomes disproportionately fragile.
 
 ### Scope trigger
-A planned version grows enough that it should be split into smaller releases.
+A milestone grows too large and should be split.
 
 ### Reality trigger
-Real choir-manager behavior contradicts an assumption in this document.
-
-### Cost trigger
-Infrastructure or maintenance cost becomes disproportionate to the value delivered.
+Actual choir-manager usage disproves a product assumption.
 
 ### Reliability trigger
-The same class of production bug appears more than once.
+The same class of production failure repeats.
 
 When replanning:
 
-1. write down the observed problem
-2. identify the assumption that failed
-3. update the Bible section if product truth changed
-4. update the roadmap order
-5. explicitly mark deferred or removed work
-6. only then begin implementation
+1. describe the observed problem
+2. identify the failed assumption
+3. update **CHOIR_MANAGER_BIBLE.md** only if product truth changed
+4. update Roadmap phases/order
+5. explicitly mark deferred/removed work
+6. then implement
 
 ---
 
-## 12. Intervention / stop conditions
+## 20. Definition of done for any milestone
 
-Any contributor or agent should stop and request a decision if:
+A milestone is complete only when relevant items are satisfied:
 
-- production data shape differs materially from expectations
-- a migration proposes unexpected writes
-- data counts change unexpectedly
-- a user loses access after a rules change
-- cross-workspace access is possible
-- an invite can escalate its own role
-- a Manager action can claim ownership
-- production deploy targets the wrong Firebase or Vercel project
-- a task requires destructive production writes that were not explicitly approved
-- a framework rewrite is being proposed without a concrete need
-- implementation conflicts with this roadmap
+- [ ] scope is explicit
+- [ ] implementation complete
+- [ ] automated tests pass
+- [ ] security tests pass where relevant
+- [ ] mobile regression checked where relevant
+- [ ] migration dry-run performed where relevant
+- [ ] production data preserved
+- [ ] live verification completed if deployed
+- [ ] code pushed
+- [ ] Roadmap status updated
+- [ ] new product truths reflected in the Bible if necessary
 
-Do not “repair while proceeding” after a stop condition.
-
----
-
-## 13. Definition of done for each version
-
-A version is complete only when:
-
-- [ ] scope is clearly defined
-- [ ] implementation is complete
-- [ ] relevant automated tests pass
-- [ ] mobile regression is checked where relevant
-- [ ] security rules are checked where relevant
-- [ ] no unrelated production data is changed
-- [ ] migration is dry-run first when relevant
-- [ ] live verification is completed when deployed
-- [ ] roadmap checkboxes are updated
-- [ ] newly discovered product decisions are recorded here
-- [ ] commit is pushed
-- [ ] release state is unambiguous
-
-“Code exists” is not the same as “version is complete.”
+**"Code exists" is not the same as "done."**
 
 ---
 
-## 14. Agent / contributor workflow
+## 21. Contributor / AI handoff protocol
 
-Before starting work:
+Before starting:
 
-1. Read this file.
-2. Inspect current `main`.
-3. Identify the active unchecked milestone.
-4. Do not jump ahead unless instructed.
-5. Separate:
-   - read-only review
-   - code changes
-   - deployment
-   - production data writes
-6. Prefer dry runs before migrations.
-7. Keep unrelated changes out of the diff.
-8. Update this roadmap as part of completing a milestone.
+1. Read **CHOIR_MANAGER_BIBLE.md**.
+2. Read this Roadmap.
+3. Inspect current `main`.
+4. Identify the first incomplete active phase.
+5. Do not jump ahead unless explicitly instructed.
+6. Separate review, code changes, deploys, and production writes.
+7. Dry-run migrations first where possible.
 
-If an external AI agent is used, its task should specify:
+A hands-on agent prompt should state:
 
 - expected starting commit
-- exact allowed scope
-- tests to run
-- forbidden production actions
+- exact scope
+- tests required
+- production actions allowed
+- production actions forbidden
 - desired final report
-- whether commit/push/deploy is allowed
+- whether commit/push/deploy is authorized
+
+If a production state differs from this Roadmap, stop and report rather than silently repairing while proceeding.
 
 ---
 
-## 15. Product decision log
+## 22. Update discipline
 
-### Locked decisions
+### Update this Roadmap when
 
-- Firestore remains authoritative.
-- Excel export is a safety backup, not a parallel database.
-- Roles are per workspace.
-- Owner and Manager are the current workspace roles.
-- Pending real owners may exist by display name before connecting an account.
-- Owner linking must be explicit and secure.
-- Manager invites cannot become Owner invites through client input.
-- Workspace isolation is mandatory.
-- Historical operational records should be preserved.
-- Mobile UX is a first-class requirement.
-- Production migrations must be dry-run before apply.
-- Simplicity is preferred over expanding into a generic business platform.
+- a milestone completes
+- production rollout changes state
+- a blocker appears or clears
+- work is promoted from backlog
+- sequencing changes
 
-### Decisions that may change after real usage
+### Update the Bible when
 
-- which statistics deserve prominence
-- how fairness/rotation should be scored
-- how much workflow automation is useful
-- whether notifications are necessary
-- whether restore/import should ever be added
-- whether additional roles are needed
-- whether a larger frontend architecture is justified
+- product purpose changes
+- target user changes
+- a locked boundary changes
+- role/security philosophy changes
+- source-of-truth philosophy changes
 
----
+Do not duplicate day-to-day execution detail into the Bible.
 
-## 16. The north star
+The Roadmap should always make the answer to these three questions obvious:
 
-The app is succeeding when a choir manager can open it and confidently understand:
-
-**what is happening, what needs attention, who is involved, and what to do next — without needing a spreadsheet, a developer, or a manual.**
-
-That is the standard against which new features should be judged.
+1. **What has been done?**
+2. **Where are we now?**
+3. **What happens next?**
